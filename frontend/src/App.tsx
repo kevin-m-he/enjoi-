@@ -9,6 +9,7 @@ import Stepper from './components/Stepper';
 import Toasts from './components/Toasts';
 import VocalScreen from './components/VocalScreen';
 import { HeroWave, FoamMark } from './components/WaveArt';
+import { API_BASE } from './lib/api';
 import { useJobSocket } from './lib/ws';
 import { useStore } from './store';
 
@@ -33,7 +34,7 @@ function BackendDown() {
           <p className="mt-3 text-sm font-medium text-prussian-900">
             The local enjoi engine isn’t answering on{' '}
             <code className="rounded-sm border-2 border-ink bg-foam px-1.5 py-0.5 text-xs font-bold text-ink">
-              127.0.0.1:8723
+              {API_BASE.replace(/^https?:\/\//, '')}
             </code>
             . Start it from the project root with{' '}
             <code className="rounded-sm border-2 border-ink bg-pink px-1.5 py-0.5 text-xs font-bold text-white">

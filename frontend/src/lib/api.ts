@@ -14,8 +14,14 @@ import type {
   VocalAnalysis,
 } from './types';
 
-export const API_BASE = 'http://127.0.0.1:8723';
-export const WS_URL = 'ws://127.0.0.1:8723/ws';
+// Backend origin. Defaults to the local desktop backend; the public web build
+// overrides it at build time with VITE_API_BASE (e.g. the hosted generator URL):
+//   VITE_API_BASE=https://api.enjoi.dev  npm run build
+// The WS URL is derived so http→ws / https→wss can never drift apart.
+export const API_BASE = (
+  import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8723'
+).replace(/\/+$/, '');
+export const WS_URL = `${API_BASE.replace(/^http/, 'ws')}/ws`;
 
 export class ApiError extends Error {
   status: number;
