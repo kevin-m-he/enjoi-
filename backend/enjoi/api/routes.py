@@ -8,6 +8,7 @@ import tempfile
 from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from .. import __version__
@@ -38,6 +39,37 @@ def _project_or_404(pid: str):
 @router.get("/api/health")
 def health() -> dict:
     return {"status": "ok", "version": __version__, "capabilities": deps.capabilities()}
+
+
+# ---- media (audio previews, thumbnails, exports) -----------------------------
+# Explicit file route instead of StaticFiles — robust across Starlette versions
+# and gives us Range support (FileResponse) for <audio> scrubbing plus a guard
+# that never exposes the analysis-only reference cache.
+
+_MEDIA_TYPES = {
+    ".wav": "audio/wav", ".mp3": "audio/mpeg", ".flac": "audio/flac",
+    ".ogg": "audio/ogg", ".m4a": "audio/mp4", ".json": "application/json",
+    ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+}
+
+
+@router.get("/media/{pid}/{file_path:path}")
+def media(pid: str, file_path: str) -> FileResponse:
+    project = _project_or_404(pid)
+    base = project.dir.resolve()
+    try:
+        target = (base / file_path).resolve()
+    except (OSError, ValueError):
+        raise HTTPException(status_code=404, detail="Not found")
+    # Path-traversal guard + never serve the analysis-only reference sandbox.
+    if base != target and base not in target.parents:
+        raise HTTPException(status_code=404, detail="Not found")
+    if "_ref_cache" in target.relative_to(base).parts:
+        raise HTTPException(status_code=404, detail="Not found")
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail="Not found")
+    media_type = _MEDIA_TYPES.get(target.suffix.lower(), "application/octet-stream")
+    return FileResponse(str(target), media_type=media_type)
 
 
 @router.get("/api/search")

@@ -149,9 +149,9 @@ export default function AnalysisScreen() {
             ].map((t) => (
               <div
                 key={t.label}
-                className="rounded-brutal border-4 border-ink bg-foam-50 p-4 shadow-brutal-sm"
+                className="rounded-brutal border-4 border-ink bg-cyan p-4 shadow-brutal-sm"
               >
-                <p className="text-xs font-extrabold uppercase tracking-wide text-prussian-700/70">
+                <p className="text-xs font-extrabold uppercase tracking-wide text-prussian-900">
                   {t.label}
                 </p>
                 <p className="mt-1 font-display text-2xl font-black text-ink">{t.value}</p>
@@ -201,7 +201,7 @@ export default function AnalysisScreen() {
               {profile.mood_tags.map((m) => (
                 <span
                   key={`m-${m}`}
-                  className="rounded-sm border-2 border-ink bg-cyan px-3 py-1 text-xs font-extrabold uppercase text-ink"
+                  className="rounded-sm border-2 border-ink bg-foam px-3 py-1 text-xs font-extrabold uppercase text-ink"
                 >
                   {m}
                 </span>

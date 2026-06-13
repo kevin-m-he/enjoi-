@@ -35,7 +35,7 @@ export default function AudioPlayer({ src, title }: { src: string; title?: strin
   };
 
   return (
-    <div className="flex items-center gap-3 rounded-brutal border-3 border-ink bg-foam px-4 py-3 shadow-brutal-sm">
+    <div className="flex items-center gap-3 rounded-brutal border-3 border-ink bg-cyan px-4 py-3 shadow-brutal-sm">
       <audio
         ref={audioRef}
         src={src}
@@ -55,11 +55,11 @@ export default function AudioPlayer({ src, title }: { src: string; title?: strin
       </button>
       <div className="min-w-0 flex-1">
         {title && (
-          <div className="mb-1 truncate text-xs font-bold uppercase tracking-tight text-prussian-700">
+          <div className="mb-1 truncate text-xs font-bold uppercase tracking-tight text-prussian-900">
             {title}
           </div>
         )}
-        <div className="flex items-center gap-2 text-xs font-semibold tabular-nums text-prussian-700">
+        <div className="flex items-center gap-2 text-xs font-semibold tabular-nums text-prussian-900">
           <span className="w-9 text-right">{fmtTime(time)}</span>
           <input
             type="range"

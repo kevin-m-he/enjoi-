@@ -58,11 +58,7 @@ export default function JobProgressBar({
   const barHeight = prominent ? 'h-7' : 'h-4';
 
   return (
-    <div
-      className={`rounded-brutal border-4 border-ink p-4 shadow-brutal ${
-        done ? 'bg-cyan' : 'bg-foam-50'
-      }`}
-    >
+    <div className="rounded-brutal border-4 border-ink bg-cyan p-4 shadow-brutal">
       <div className="flex items-center justify-between gap-3">
         <span className="flex items-center gap-2 font-display text-sm font-extrabold uppercase tracking-tight text-ink">
           {running && <WaveSpinner className="h-5 w-5" />}
@@ -80,9 +76,7 @@ export default function JobProgressBar({
       >
         <div
           className={`h-full border-r-3 border-ink bg-prussian ${
-            running
-              ? "animate-wave-march bg-[length:48px_100%] bg-[repeating-linear-gradient(115deg,#1B3A5B_0,#1B3A5B_18px,#00E5FF_18px,#00E5FF_24px,#FF2D95_24px,#FF2D95_30px,#1B3A5B_30px,#1B3A5B_48px)]"
-              : ''
+            running ? 'pixel-wave-fill animate-pixel-wave-march' : ''
           }`}
           style={{ width: `${done ? 100 : Math.max(pct, 3)}%` }}
         />

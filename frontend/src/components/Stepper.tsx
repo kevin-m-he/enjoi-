@@ -34,7 +34,7 @@ export default function Stepper() {
                     active
                       ? 'bg-pink text-white shadow-brutal-sm'
                       : unlocked
-                        ? 'bg-foam text-ink shadow-brutal-sm hover:bg-cyan active:shadow-none'
+                        ? 'bg-foam text-ink shadow-brutal-sm hover:bg-pink hover:text-white active:shadow-none'
                         : 'cursor-not-allowed border-prussian-700/30 bg-washi-200 text-prussian-700/40 shadow-none'
                   }`}
                 >

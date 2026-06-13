@@ -195,7 +195,7 @@ export default function MixExportScreen() {
             <a
               href={mp3Url}
               download="song.mp3"
-              className="rounded-brutal border-3 border-ink bg-cyan px-4 py-2 text-sm font-extrabold uppercase text-ink shadow-brutal-sm transition active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
+              className="rounded-brutal border-3 border-ink bg-foam px-4 py-2 text-sm font-extrabold uppercase text-ink shadow-brutal-sm transition active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
             >
               ↓ Download MP3
             </a>

@@ -26,13 +26,13 @@ function BackendDown() {
     <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
       <div className="w-full max-w-md overflow-hidden rounded-brutal border-4 border-ink shadow-brutal-lg">
         <HeroWave className="h-40 w-full" />
-        <div className="border-t-4 border-ink bg-foam-50 p-6">
+        <div className="border-t-4 border-ink bg-cyan p-6">
           <h1 className="font-display text-3xl font-black uppercase tracking-tight text-ink">
             <span className="text-pink">Backend</span> not running
           </h1>
-          <p className="mt-3 text-sm font-medium text-prussian-700">
+          <p className="mt-3 text-sm font-medium text-prussian-900">
             The local enjoi engine isn’t answering on{' '}
-            <code className="rounded-sm border-2 border-ink bg-cyan px-1.5 py-0.5 text-xs font-bold text-ink">
+            <code className="rounded-sm border-2 border-ink bg-foam px-1.5 py-0.5 text-xs font-bold text-ink">
               127.0.0.1:8723
             </code>
             . Start it from the project root with{' '}
@@ -48,7 +48,7 @@ function BackendDown() {
           >
             {checking ? 'Checking…' : 'Retry now'}
           </button>
-          <p className="mt-3 text-xs font-semibold text-prussian-700/70">
+          <p className="mt-3 text-xs font-semibold text-prussian-900">
             Retrying automatically every few seconds…
           </p>
         </div>

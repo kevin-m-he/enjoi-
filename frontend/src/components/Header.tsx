@@ -61,7 +61,6 @@ export default function Header() {
           />
         </div>
       </div>
-      <div className="seigaiha-divider" aria-hidden />
     </header>
   );
 }

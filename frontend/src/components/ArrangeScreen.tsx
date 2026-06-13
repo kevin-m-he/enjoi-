@@ -158,7 +158,7 @@ export default function ArrangeScreen() {
         <button
           onClick={() => void startRearrange(weights)}
           disabled={rearranging || saving}
-          className="shrink-0 rounded-brutal border-3 border-ink bg-cyan px-4 py-2.5 text-sm font-extrabold uppercase tracking-tight text-ink shadow-brutal-sm transition active:translate-x-[3px] active:translate-y-[3px] active:shadow-none disabled:opacity-50"
+          className="shrink-0 rounded-brutal border-3 border-ink bg-foam px-4 py-2.5 text-sm font-extrabold uppercase tracking-tight text-ink shadow-brutal-sm transition active:translate-x-[3px] active:translate-y-[3px] active:shadow-none disabled:opacity-50"
           title="Re-run chorus/bridge detection and placement with the weights below"
         >
           {rearranging ? 'Re-detecting…' : '↻ Re-detect'}

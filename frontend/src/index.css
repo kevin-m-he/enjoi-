@@ -23,15 +23,32 @@ body {
   @apply text-ink antialiased;
   font-family: Inter, 'Segoe UI', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
   color: var(--ink);
-  /* bright-cyan canvas (the app's main color) with a faint seigaiha wave-scale
-     watermark in ink so the texture reads against the saturated cyan */
+  /* bright-cyan canvas (the app's main color) sprinkled with tiny pixel-art
+     bubbles — each bubble is a hard-edged ring plus a single highlight pixel,
+     placed at irregular positions and varied sizes across a large 200px tile so
+     the texture reads as sporadic 8-bit bubbles, not a tidy grid. Low-opacity
+     ink / prussian / white keeps it subtle and text readable. Hard color stops
+     (no soft falloff) give the pixelated look. */
   background-color: var(--cyan);
   background-image:
-    radial-gradient(circle at 16px 32px, transparent 14px, rgba(11, 44, 77, 0.10) 15px, transparent 16px),
-    radial-gradient(circle at 16px 32px, transparent 8px, rgba(11, 44, 77, 0.10) 9px, transparent 10px),
-    radial-gradient(circle at 0px 32px, transparent 14px, rgba(11, 44, 77, 0.10) 15px, transparent 16px),
-    radial-gradient(circle at 32px 32px, transparent 14px, rgba(11, 44, 77, 0.10) 15px, transparent 16px);
-  background-size: 32px 32px;
+    /* bubble 1 — ink ring + white highlight pixel (top-left, medium) */
+    radial-gradient(circle at 24px 30px, transparent 5px, rgba(11, 11, 12, 0.10) 5px, rgba(11, 11, 12, 0.10) 7px, transparent 7px),
+    radial-gradient(circle at 21px 27px, rgba(255, 255, 255, 0.28) 0, rgba(255, 255, 255, 0.28) 2px, transparent 2px),
+    /* bubble 2 — prussian ring (upper-right, small) */
+    radial-gradient(circle at 150px 18px, transparent 3px, rgba(27, 58, 91, 0.14) 3px, rgba(27, 58, 91, 0.14) 5px, transparent 5px),
+    /* bubble 3 — ink ring + highlight (mid-left, large) */
+    radial-gradient(circle at 64px 104px, transparent 7px, rgba(11, 11, 12, 0.09) 7px, rgba(11, 11, 12, 0.09) 9px, transparent 9px),
+    radial-gradient(circle at 60px 100px, rgba(255, 255, 255, 0.26) 0, rgba(255, 255, 255, 0.26) 2px, transparent 2px),
+    /* bubble 4 — prussian ring (right, medium) */
+    radial-gradient(circle at 176px 86px, transparent 5px, rgba(27, 58, 91, 0.12) 5px, rgba(27, 58, 91, 0.12) 7px, transparent 7px),
+    /* bubble 5 — ink ring (lower-center, small) */
+    radial-gradient(circle at 108px 150px, transparent 3px, rgba(11, 11, 12, 0.10) 3px, rgba(11, 11, 12, 0.10) 5px, transparent 5px),
+    /* bubble 6 — ink ring + highlight (bottom-right, medium) */
+    radial-gradient(circle at 168px 176px, transparent 5px, rgba(11, 11, 12, 0.09) 5px, rgba(11, 11, 12, 0.09) 7px, transparent 7px),
+    radial-gradient(circle at 165px 173px, rgba(255, 255, 255, 0.26) 0, rgba(255, 255, 255, 0.26) 2px, transparent 2px),
+    /* bubble 7 — prussian ring (bottom-left, small) */
+    radial-gradient(circle at 30px 178px, transparent 3px, rgba(27, 58, 91, 0.13) 3px, rgba(27, 58, 91, 0.13) 5px, transparent 5px);
+  background-size: 200px 200px;
   background-attachment: fixed;
 }
 
@@ -68,6 +85,22 @@ body {
   background-size: 32px 32px;
 }
 
+/* ---------- pixel-art wave loading fill ----------
+   A little 8-bit wave crest built from hard-edged pink + cyan squares on a
+   prussian sea. Rendered as a 32px-square data-URI SVG tile that repeats
+   horizontally; the `animate-pixel-wave-march` keyframe scrolls the
+   background-position by one tile so the crest marches left→right while a job
+   runs. No blur — every block is a crisp pixel. */
+.pixel-wave-fill {
+  /* prussian sea underneath keeps the brutalist dark base if the tile is short */
+  background-color: var(--prussian);
+  background-repeat: repeat-x;
+  background-size: 32px 100%;
+  background-position: 0 0;
+  image-rendering: pixelated;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='28' shape-rendering='crispEdges'%3E%3Crect width='32' height='28' fill='%231B3A5B'/%3E%3C!-- cyan crest body --%3E%3Crect x='0' y='12' width='4' height='4' fill='%2300E5FF'/%3E%3Crect x='4' y='8' width='4' height='4' fill='%2300E5FF'/%3E%3Crect x='8' y='4' width='4' height='4' fill='%2300E5FF'/%3E%3Crect x='12' y='8' width='4' height='4' fill='%2300E5FF'/%3E%3Crect x='16' y='12' width='4' height='4' fill='%2300E5FF'/%3E%3Crect x='20' y='8' width='4' height='4' fill='%2300E5FF'/%3E%3Crect x='24' y='4' width='4' height='4' fill='%2300E5FF'/%3E%3Crect x='28' y='8' width='4' height='4' fill='%2300E5FF'/%3E%3C!-- pink foam pixels on the crests --%3E%3Crect x='8' y='0' width='4' height='4' fill='%23FF2D95'/%3E%3Crect x='24' y='0' width='4' height='4' fill='%23FF2D95'/%3E%3Crect x='4' y='4' width='4' height='4' fill='%23FF2D95'/%3E%3Crect x='20' y='4' width='4' height='4' fill='%23FF2D95'/%3E%3C!-- pink water blocks below --%3E%3Crect x='0' y='16' width='4' height='4' fill='%23FF2D95'/%3E%3Crect x='16' y='16' width='4' height='4' fill='%23FF2D95'/%3E%3Crect x='12' y='20' width='4' height='4' fill='%2300E5FF'/%3E%3Crect x='28' y='20' width='4' height='4' fill='%2300E5FF'/%3E%3C/svg%3E");
+}
+
 /* a thin animated seigaiha strip used as a section divider */
 .seigaiha-divider {
   height: 16px;
@@ -96,14 +129,8 @@ input[type='range']::-webkit-slider-runnable-track {
   height: 12px;
   border: 3px solid var(--ink);
   border-radius: 0;
-  background:
-    repeating-linear-gradient(
-      90deg,
-      var(--cyan) 0,
-      var(--cyan) 12px,
-      var(--pink) 12px,
-      var(--pink) 24px
-    );
+  /* single solid pink track — pops on the cyan surfaces */
+  background: var(--pink);
 }
 input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -123,14 +150,8 @@ input[type='range']::-moz-range-track {
   height: 12px;
   border: 3px solid var(--ink);
   border-radius: 0;
-  background:
-    repeating-linear-gradient(
-      90deg,
-      var(--cyan) 0,
-      var(--cyan) 12px,
-      var(--pink) 12px,
-      var(--pink) 24px
-    );
+  /* single solid pink track — pops on the cyan surfaces */
+  background: var(--pink);
 }
 input[type='range']::-moz-range-thumb {
   height: 24px;

@@ -114,7 +114,7 @@ export default function SimilarityScreen() {
       {/* hero slider */}
       <Card className="px-8 py-8">
         <div className="mb-5 text-center">
-          <span className="font-display text-7xl font-black tabular-nums text-stroke-ink text-cyan">
+          <span className="font-display text-7xl font-black tabular-nums text-stroke-ink text-pink">
             {value}%
           </span>
         </div>

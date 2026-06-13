@@ -114,7 +114,7 @@ export default function SearchScreen() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search YouTube for a song, artist or vibe…"
-            className="w-full rounded-brutal border-4 border-ink bg-foam py-4 pl-14 pr-5 text-base font-semibold text-ink placeholder-prussian-700/50 shadow-brutal outline-none transition focus:bg-foam-50"
+            className="w-full rounded-brutal border-4 border-ink bg-cyan py-4 pl-14 pr-5 text-base font-semibold text-ink placeholder-prussian-900/50 shadow-brutal outline-none transition focus:bg-foam"
           />
         </div>
         {loading && (
@@ -156,7 +156,7 @@ export default function SearchScreen() {
                 key={r.video_id}
                 onClick={() => void onSelect(r)}
                 disabled={isLocked}
-                className={`group relative overflow-hidden rounded-brutal border-4 border-ink bg-foam-50 text-left shadow-brutal-sm transition ${
+                className={`group relative overflow-hidden rounded-brutal border-4 border-ink bg-cyan text-left shadow-brutal-sm transition ${
                   isChosen
                     ? 'shadow-brutal ring-0'
                     : isLocked
@@ -192,7 +192,7 @@ export default function SearchScreen() {
                 </div>
                 <div className="p-3">
                   <p className="line-clamp-2 text-sm font-bold leading-snug text-ink">{r.title}</p>
-                  <p className="mt-1 truncate text-xs font-medium text-prussian-700/80">
+                  <p className="mt-1 truncate text-xs font-medium text-prussian-900">
                     {r.channel} · {abbrev(r.view_count)} views
                   </p>
                 </div>
@@ -214,7 +214,7 @@ export default function SearchScreen() {
         subtitle="Projects live locally under %APPDATA%\enjoi\projects"
       >
         {projects.length === 0 ? (
-          <p className="text-sm font-medium text-prussian-700">
+          <p className="text-sm font-medium text-prussian-900">
             No projects yet — pick a reference above to start your first one.
           </p>
         ) : (
@@ -242,7 +242,7 @@ export default function SearchScreen() {
                     {new Date(p.created_at).toLocaleDateString()}
                   </p>
                 </button>
-                <span className="shrink-0 rounded-sm border-2 border-ink bg-cyan px-2 py-0.5 text-[11px] font-extrabold uppercase text-ink">
+                <span className="shrink-0 rounded-sm border-2 border-ink bg-pink px-2 py-0.5 text-[11px] font-extrabold uppercase text-white">
                   {stageLabel(p)}
                 </span>
                 <button

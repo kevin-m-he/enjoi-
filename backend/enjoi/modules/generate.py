@@ -403,7 +403,10 @@ def generate_instrumental(project, plan: dict, progress) -> dict:
             # ---- conform + grid + write --------------------------------------
             audio, grid = _conform_and_grid(audio, current_plan, engine_name,
                                             subprogress(progress, hi - 0.02, hi))
-            core_audio.save_wav(project.instrumental_path, audio, SR, subtype="PCM_24")
+            # 16-bit so the desktop <audio> preview can decode it (Chromium does
+            # not support 24-bit PCM WAV). This is an intermediate that gets
+            # re-rendered into the 24-bit final master, so there is no audible loss.
+            core_audio.save_wav(project.instrumental_path, audio, SR, subtype="PCM_16")
 
             # ---- uniqueness gate ---------------------------------------------
             audit_p(0.0, f"Originality audit (attempt {attempts})…")

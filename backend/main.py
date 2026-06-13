@@ -7,7 +7,6 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
 from enjoi import __version__
 from enjoi.api.routes import router
@@ -35,9 +34,6 @@ app.add_middleware(
 )
 
 app.include_router(router)
-
-# /media/<project-id>/<relpath> → file previews (audio players, exports)
-app.mount("/media", StaticFiles(directory=str(config.projects_dir())), name="media")
 
 
 if __name__ == "__main__":
