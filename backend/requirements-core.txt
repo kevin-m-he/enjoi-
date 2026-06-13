@@ -1,0 +1,18 @@
+# Baseline dependencies — the app runs end-to-end with ONLY these installed
+# (heavier ML engines in requirements-full.txt upgrade quality when present).
+fastapi>=0.111
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9
+websockets>=12.0
+numpy>=1.26,<2.0
+scipy>=1.11
+soundfile>=0.12
+soxr>=0.3
+librosa>=0.10.2
+yt-dlp>=2025.1.15
+imageio-ffmpeg>=0.4.9
+pyloudnorm>=0.1.1
+pedalboard>=0.9.9
+noisereduce>=3.0
+mutagen>=1.47
+requests>=2.31
