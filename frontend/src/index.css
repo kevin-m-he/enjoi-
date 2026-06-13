@@ -46,23 +46,23 @@ body::before {
   background-size: 200px 200px;
   background-image:
     /* bubble 1 — ink ring + white highlight pixel (top-left, medium) */
-    radial-gradient(circle at 24px 30px, transparent 5px, rgba(11, 11, 12, 0.10) 5px, rgba(11, 11, 12, 0.10) 7px, transparent 7px),
-    radial-gradient(circle at 21px 27px, rgba(255, 255, 255, 0.28) 0, rgba(255, 255, 255, 0.28) 2px, transparent 2px),
+    radial-gradient(circle at 24px 30px, transparent 5px, rgba(11, 11, 12, 0.22) 5px, rgba(11, 11, 12, 0.22) 7px, transparent 7px),
+    radial-gradient(circle at 21px 27px, rgba(255, 255, 255, 0.6) 0, rgba(255, 255, 255, 0.6) 2px, transparent 2px),
     /* bubble 2 — prussian ring (upper-right, small) */
-    radial-gradient(circle at 150px 18px, transparent 3px, rgba(27, 58, 91, 0.14) 3px, rgba(27, 58, 91, 0.14) 5px, transparent 5px),
+    radial-gradient(circle at 150px 18px, transparent 3px, rgba(27, 58, 91, 0.28) 3px, rgba(27, 58, 91, 0.28) 5px, transparent 5px),
     /* bubble 3 — ink ring + highlight (mid-left, large) */
-    radial-gradient(circle at 64px 104px, transparent 7px, rgba(11, 11, 12, 0.09) 7px, rgba(11, 11, 12, 0.09) 9px, transparent 9px),
-    radial-gradient(circle at 60px 100px, rgba(255, 255, 255, 0.26) 0, rgba(255, 255, 255, 0.26) 2px, transparent 2px),
+    radial-gradient(circle at 64px 104px, transparent 7px, rgba(11, 11, 12, 0.22) 7px, rgba(11, 11, 12, 0.22) 9px, transparent 9px),
+    radial-gradient(circle at 60px 100px, rgba(255, 255, 255, 0.6) 0, rgba(255, 255, 255, 0.6) 2px, transparent 2px),
     /* bubble 4 — prussian ring (right, medium) */
-    radial-gradient(circle at 176px 86px, transparent 5px, rgba(27, 58, 91, 0.12) 5px, rgba(27, 58, 91, 0.12) 7px, transparent 7px),
+    radial-gradient(circle at 176px 86px, transparent 5px, rgba(27, 58, 91, 0.28) 5px, rgba(27, 58, 91, 0.28) 7px, transparent 7px),
     /* bubble 5 — ink ring (lower-center, small) */
-    radial-gradient(circle at 108px 150px, transparent 3px, rgba(11, 11, 12, 0.10) 3px, rgba(11, 11, 12, 0.10) 5px, transparent 5px),
+    radial-gradient(circle at 108px 150px, transparent 3px, rgba(11, 11, 12, 0.22) 3px, rgba(11, 11, 12, 0.22) 5px, transparent 5px),
     /* bubble 6 — ink ring + highlight (bottom-right, medium) */
-    radial-gradient(circle at 168px 176px, transparent 5px, rgba(11, 11, 12, 0.09) 5px, rgba(11, 11, 12, 0.09) 7px, transparent 7px),
-    radial-gradient(circle at 165px 173px, rgba(255, 255, 255, 0.26) 0, rgba(255, 255, 255, 0.26) 2px, transparent 2px),
+    radial-gradient(circle at 168px 176px, transparent 5px, rgba(11, 11, 12, 0.22) 5px, rgba(11, 11, 12, 0.22) 7px, transparent 7px),
+    radial-gradient(circle at 165px 173px, rgba(255, 255, 255, 0.6) 0, rgba(255, 255, 255, 0.6) 2px, transparent 2px),
     /* bubble 7 — prussian ring (bottom-left, small) */
-    radial-gradient(circle at 30px 178px, transparent 3px, rgba(27, 58, 91, 0.13) 3px, rgba(27, 58, 91, 0.13) 5px, transparent 5px);
-  animation: bubble-rise 18s linear infinite;
+    radial-gradient(circle at 30px 178px, transparent 3px, rgba(27, 58, 91, 0.28) 3px, rgba(27, 58, 91, 0.28) 5px, transparent 5px);
+  animation: bubble-rise 9s linear infinite;
   will-change: transform;
 }
 
