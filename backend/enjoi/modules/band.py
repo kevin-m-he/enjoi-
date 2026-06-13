@@ -44,6 +44,9 @@ _MINOR = [0, 2, 3, 5, 7, 8, 10]
 
 # Diatonic progressions as 0-based scale degrees (triads built in-scale).
 _MAJOR_PROGS = [[0, 4, 5, 3], [0, 5, 3, 4], [5, 3, 0, 4], [0, 3, 4, 4], [0, 3, 0, 4]]
+# Moodier major progressions (start on the vi / relative minor, or lean on the
+# minor iii–vi) so a major-key default doesn't sound overly cheerful.
+_MAJOR_PROGS_MOODY = [[5, 3, 0, 4], [5, 4, 0, 3], [5, 0, 3, 4], [2, 5, 0, 4], [5, 3, 4, 0]]
 _MINOR_PROGS = [[0, 5, 2, 6], [0, 6, 5, 6], [0, 5, 3, 4], [0, 2, 6, 5], [0, 3, 0, 6]]
 
 # GM programs (0-based). Drum kit lives on MIDI channel 9 (bank 128).
@@ -214,7 +217,12 @@ def _triad(scale: list[int], degree: int) -> list[int]:
 def _build_arrangement(ctx: _Ctx) -> dict:
     rng = ctx.rng
     bpb, spb = ctx.bpb, ctx.spb
-    prog = rng.choice(_MINOR_PROGS if ctx.minorish else _MAJOR_PROGS)
+    if ctx.minorish:
+        prog = rng.choice(_MINOR_PROGS)
+    else:
+        # Even in a major key, lean on the moodier, vi-/relative-minor-leaning
+        # progressions most of the time so the default doesn't sound chirpy.
+        prog = rng.choice(_MAJOR_PROGS_MOODY if rng.random() < 0.7 else _MAJOR_PROGS)
     feel = ctx.recipe["feel"]
 
     drums: list[tuple] = []
@@ -246,10 +254,11 @@ def _build_arrangement(ctx: _Ctx) -> dict:
             voiced = [m + 12 for m in triad]
             _harmony_bar(harmony, t0, bpb, spb, voiced, feel, inten, rng)
 
-            # --- strings pad on bigger sections ---
-            if inten >= 0.7:
+            # --- strings: a DARK, low pad in the chorus only — soft, no bright
+            #     top octave (the old high octave + loud level read as "happy") ---
+            if label in ("chorus", "inst") and inten >= 0.8:
                 strings.append((t0, bpb * spb * 0.98,
-                                [m + 12 for m in triad] + [triad[0] + 24], int(46 * inten)))
+                                list(triad) + [triad[0] - 12], int(26 * inten)))
 
             # --- lead melody only on chorus/inst, sparse, leaves room ---
             if label in ("chorus", "inst") and inten >= 0.8:
@@ -469,7 +478,7 @@ _MIX = {
     "drums": (0.0, 30.0, 0.0),
     "bass": (-1.0, 30.0, 0.0),
     "harmony": (-7.5, 120.0, -0.25),
-    "strings": (-12.0, 180.0, 0.3),
+    "strings": (-16.0, 220.0, 0.3),   # well back + higher HPF → moody, not lush
     "lead": (-9.0, 250.0, 0.18),
 }
 
@@ -479,7 +488,7 @@ def _mix_stems(stems: dict, progress) -> np.ndarray:
     bus = np.zeros((2, n), dtype=np.float32)
     # Level each stem to a reference RMS then apply its mix gain, so the balance
     # is consistent regardless of how hot the soundfont rendered each instrument.
-    ref_rms = {"drums": 0.20, "bass": 0.16, "harmony": 0.10, "strings": 0.07, "lead": 0.09}
+    ref_rms = {"drums": 0.20, "bass": 0.16, "harmony": 0.10, "strings": 0.045, "lead": 0.09}
     for name, stem in stems.items():
         if stem.size == 0 or _rms(stem) < 1e-5:
             continue
@@ -578,9 +587,10 @@ def _master(bus: np.ndarray, loudness_lufs: float, progress) -> np.ndarray:
     # Measured outputs ran dark (~ -6 dB/oct, <1% energy >4 kHz) and boomy
     # (>74% <200 Hz). Tame sub-mud, add presence + air. Gentle, genre-agnostic.
     x = _hpf(x, 28.0)                       # clear true sub rumble
-    x = _shelf(x, 130.0, -2.5, high=False)  # control low-end boom
-    x = _shelf(x, 3000.0, +1.8, high=True)  # presence / clarity
-    x = _shelf(x, 8500.0, +4.0, high=True)  # air / sheen
+    x = _shelf(x, 130.0, -1.2, high=False)  # light sub control (keep low weight)
+    x = _shelf(x, 250.0, +1.2, high=False)  # low-mid warmth — moody body
+    x = _shelf(x, 3000.0, +0.6, high=True)  # a touch of presence, not glassy
+    x = _shelf(x, 9000.0, +1.5, high=True)  # subtle air, NOT the old sparkle
 
     # --- glue compression (bus cohesion) ----------------------------------
     pedalboard = deps.optional_import("pedalboard")
@@ -963,6 +973,16 @@ def _semitones_to(target_pc, native_pc) -> float:
     return float(((target_pc - native_pc + 6) % 12) - 6)
 
 
+# Default mood bias: modern releases lean moody/dark, not bright/"happy". We
+# nudge EVERY loop pick toward moody timbres and away from cheery ones (the #1
+# product note was "too cheery, happy strings everywhere").
+_MOODY_KW = ("dark", "moody", "sad", "melanchol", "minor", "lofi", "lo-fi", "lo fi",
+             "night", "deep", "emotional", "emo", "cold", "drill", "trap", "ambient",
+             "cinematic", "haunt", "dusk", "rain", "noir", "vintage", "soul")
+_CHEERY_KW = ("happy", "uplift", "bright", "cheer", "sunny", "feelgood", "feel good",
+              "feel-good", "joy", "summer", "tropical", "festive", "playful", "cute")
+
+
 def _pick(index, cats, target_pc, target_bpm, rng, prefer=(), avoid=(), mode=None):
     pool = [s for s in index if s["cat"] in cats]
     if not pool:
@@ -976,6 +996,15 @@ def _pick(index, cats, target_pc, target_bpm, rng, prefer=(), avoid=(), mode=Non
         for kw in avoid:
             if kw in nm:
                 sc -= 2.5
+        # universal mood bias toward moody, away from cheery
+        for kw in _MOODY_KW:
+            if kw in nm:
+                sc += 1.3
+                break
+        for kw in _CHEERY_KW:
+            if kw in nm:
+                sc -= 1.8
+                break
         if s["bpm"]:
             ratio = target_bpm / _fold_bpm(s["bpm"], target_bpm)
             sc -= abs(math.log2(max(ratio, 1e-3))) * 4.0  # penalize stretch
@@ -983,6 +1012,10 @@ def _pick(index, cats, target_pc, target_bpm, rng, prefer=(), avoid=(), mode=Non
             sc -= abs(_semitones_to(target_pc, s["pc"])) * 0.25
         if mode and s["mode"] == mode:
             sc += 0.8
+        # minor-key material reads as moodier — prefer it a bit, more so when the
+        # song itself is minor.
+        if s["mode"] == "minor":
+            sc += 1.4 if mode == "minor" else 0.7
         return sc
     pool.sort(key=score, reverse=True)
     top = pool[: max(1, min(3, len(pool)))]
@@ -1028,12 +1061,16 @@ _LAYER = {
              "bridge": 0.7, "outro": 0.3, "inst": 0.9},
     "color": {"intro": 0.35, "verse": 0.15, "prechorus": 0.5, "chorus": 0.8,
               "bridge": 0.6, "outro": 0.3, "inst": 0.6},
+    # second texture (pluck/arp/synth) — movement, mostly in the chorus
+    "texture": {"intro": 0.0, "verse": 0.18, "prechorus": 0.45, "chorus": 0.7,
+                "bridge": 0.5, "outro": 0.12, "inst": 0.7},
 }
 _LOOP_MIX = {  # (gain_db, highpass_hz, pan, reference_rms) — consistent balance
     "drums": (-1.0, 30.0, 0.0, 0.18),
     "bass": (-2.0, 30.0, 0.0, 0.15),
     "harmony": (-5.0, 110.0, -0.12, 0.12),
     "color": (-12.0, 220.0, 0.25, 0.055),
+    "texture": (-13.0, 320.0, -0.28, 0.045),  # opposite pan to color → width
 }
 
 
@@ -1230,6 +1267,17 @@ def _render_loops(plan: dict, progress) -> np.ndarray:
     if color is not None:
         stems["color"] = _tile(_warp(_load(color), color["bpm"], ctx.bpm,
                                      _semitones_to(tonic_pc, color["pc"]), False), n_total)
+
+    # --- a SECOND texture (pluck / arp / synth) for movement & modern variety —
+    # uses more of the library than just "a band". Sits low, mostly in the
+    # chorus, panned opposite the color so the stereo image opens up.
+    _p(progress, 0.78, "Layering a synth texture…")
+    used = {x["name"] for x in (harmony, color) if x is not None}
+    tex_cats = ("pluck", "arp", "synth") if recipe.get("color") == "pad" else ("arp", "pluck", "synth")
+    texture = _pick(index, tex_cats, tonic_pc, ctx.bpm, rng, mode=mode)
+    if texture is not None and texture["name"] not in used:
+        stems["texture"] = _tile(_warp(_load(texture), texture["bpm"], ctx.bpm,
+                                       _semitones_to(tonic_pc, texture["pc"]), False), n_total)
 
     if not stems:
         raise PipelineError("Could not select any loops from the library.")

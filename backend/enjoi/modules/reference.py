@@ -1015,14 +1015,17 @@ def _tags(meta: dict, bpm: float, key: dict, energy_mean: float,
     organic = max(guitar, piano)
     synthy = other > 0.55 and other > organic + 0.12
 
+    gmode = str(key.get("mode", "major"))
+    # 808/halftime, bass-forward and NOT organic → trap/hip-hop. Modern trap is
+    # often 130–160 BPM with a halftime feel, so don't gate it to ≤100 BPM.
+    trappy = (bass >= 0.28 and organic < 0.5 and guitar < 0.5
+              and (pattern == "halftime" or bpm >= 124))
+
     audio_genre: str | None = None
-    if synthy and pattern == "four_on_floor":
+    if synthy and pattern == "four_on_floor" and bpm >= 118:
         audio_genre = "edm"
-    elif synthy and pattern in ("backbeat", "four_on_floor") and bpm >= 110:
-        audio_genre = "pop"
-    elif drums >= 0.35 and bass >= 0.3 and pattern == "halftime" and bpm <= 100 \
-            and organic < 0.5:
-        audio_genre = "hip hop"
+    elif drums >= 0.3 and trappy:
+        audio_genre = "trap" if bpm >= 120 else "hip hop"
     elif guitar >= 0.55 and other > guitar + 0.15 and drums >= 0.55 \
             and energy_mean >= 0.6:
         audio_genre = "rock"  # loud, distorted-leaning guitar + loud drums
@@ -1032,6 +1035,11 @@ def _tags(meta: dict, bpm: float, key: dict, energy_mean: float,
             audio_genre = "country"   # full band, gentle backbeat
         else:
             audio_genre = "folk"      # sparse guitar/piano + voice
+    elif bass >= 0.3 and 60 <= bpm <= 116 and energy_mean < 0.62 \
+            and (gmode == "minor" or not synthy):
+        audio_genre = "r&b"   # smooth, mid-tempo, bass-forward, often minor
+    elif synthy and bpm >= 100:
+        audio_genre = "pop"
     elif swing >= 0.45:
         audio_genre = "jazz"
 
@@ -1059,7 +1067,9 @@ def _tags(meta: dict, bpm: float, key: dict, energy_mean: float,
             genres = [lead] + [g for g in genres if g != lead]
 
     if not genres:
-        genres.append("pop")  # truly ambiguous
+        # Truly ambiguous → bias to a moodier, more modern default than "pop":
+        # minor key reads as r&b, otherwise pop.
+        genres.append("r&b" if gmode == "minor" else "pop")
 
     # 3) Mood — metadata keywords first, then key mode + energy + tempo.
     moods: list[str] = []
