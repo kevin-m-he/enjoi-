@@ -125,6 +125,12 @@ def _download_reference(project: Project, url: str, p: ProgressFn) -> tuple[dict
         "socket_timeout": 20,
         "progress_hooks": [hook],
         "cachedir": False,
+        # On a datacenter/VPS IP, YouTube's default `web` client triggers the
+        # "Sign in to confirm you're not a bot" block. These clients ship their
+        # streams without that gate far more often; yt-dlp tries them in order.
+        "extractor_args": {
+            "youtube": {"player_client": ["ios", "tv", "mweb", "android", "web_safari"]}
+        },
     }
     ffmpeg = deps.ffmpeg_path()
     if ffmpeg:

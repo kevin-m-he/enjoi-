@@ -50,7 +50,6 @@ export default function MixExportScreen() {
   const wavUrl = `${mediaUrl(project.id, 'exports/song.wav')}?v=${v}`;
   const mp3Url = `${mediaUrl(project.id, 'exports/song.mp3')}?v=${v}`;
   const wavMeta = manifest?.exports.find((e) => e.format === 'wav') ?? manifest?.exports[0];
-  const exportsPath = `%APPDATA%\\enjoi\\projects\\${project.id}\\exports`;
 
   const build = () =>
     void startRender({
@@ -244,11 +243,7 @@ export default function MixExportScreen() {
           )}
 
           <p className="mt-4 text-xs font-medium text-prussian-700/80">
-            Files are saved in{' '}
-            <code className="rounded-sm border-2 border-ink bg-washi-200 px-1.5 py-0.5 text-[11px] font-bold text-ink">
-              {exportsPath}
-            </code>{' '}
-            — open that folder in Explorer to grab everything (stems and manifest included).
+            Use the download buttons above to save your song (stems and manifest included).
           </p>
         </Card>
       )}

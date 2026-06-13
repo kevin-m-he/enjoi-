@@ -34,6 +34,11 @@ RUN pip install --upgrade pip \
 # build + PortAudio). Skipping it keeps the SoundFont fallback working and the
 # image lean. (tinysoundfont itself ships a manylinux x86_64 wheel.)
 
+# YouTube changes its streaming API constantly; pull the newest yt-dlp so
+# reference downloads keep working (and the player_client args in reference.py
+# are recognized). Re-runs on each rebuild because YouTube breakage is frequent.
+RUN pip install -U --no-cache-dir yt-dlp
+
 # App code. NOTE: backend/sample_library/ is excluded by .dockerignore (licensed
 # loops never go in the image); samples are fetched at runtime from the R2 CDN
 # via ENJOI_SAMPLE_CDN, indexed by the committed sample_manifest.json.

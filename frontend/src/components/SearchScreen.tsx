@@ -211,7 +211,7 @@ export default function SearchScreen() {
       {/* existing projects */}
       <Card
         title="…or pick up an existing project"
-        subtitle="Projects live locally under %APPDATA%\enjoi\projects"
+        subtitle="Pick up a song you started earlier"
       >
         {projects.length === 0 ? (
           <p className="text-sm font-medium text-prussian-900">
