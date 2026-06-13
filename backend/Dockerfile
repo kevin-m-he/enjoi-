@@ -27,7 +27,12 @@ WORKDIR /app/backend
 COPY backend/requirements-core.txt ./requirements-core.txt
 RUN pip install --upgrade pip \
     && pip install -r requirements-core.txt \
-    && pip install "tinysoundfont>=0.3"
+    && pip install --no-deps "tinysoundfont>=0.3"
+# --no-deps: tinysoundfont's only runtime dep is pyaudio, which it imports lazily
+# ONLY for live audio playback (synth.py). The server renders offline, never plays
+# live, so pyaudio is unused — and it has no Linux wheel (would force a source
+# build + PortAudio). Skipping it keeps the SoundFont fallback working and the
+# image lean. (tinysoundfont itself ships a manylinux x86_64 wheel.)
 
 # App code. NOTE: backend/sample_library/ is excluded by .dockerignore (licensed
 # loops never go in the image); samples are fetched at runtime from the R2 CDN
