@@ -23,13 +23,14 @@ body {
   @apply text-ink antialiased;
   font-family: Inter, 'Segoe UI', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
   color: var(--ink);
-  /* washi-paper background with a faint seigaiha wave-scale watermark */
-  background-color: var(--washi);
+  /* bright-cyan canvas (the app's main color) with a faint seigaiha wave-scale
+     watermark in ink so the texture reads against the saturated cyan */
+  background-color: var(--cyan);
   background-image:
-    radial-gradient(circle at 16px 32px, transparent 14px, rgba(27, 58, 91, 0.05) 15px, transparent 16px),
-    radial-gradient(circle at 16px 32px, transparent 8px, rgba(27, 58, 91, 0.05) 9px, transparent 10px),
-    radial-gradient(circle at 0px 32px, transparent 14px, rgba(27, 58, 91, 0.05) 15px, transparent 16px),
-    radial-gradient(circle at 32px 32px, transparent 14px, rgba(27, 58, 91, 0.05) 15px, transparent 16px);
+    radial-gradient(circle at 16px 32px, transparent 14px, rgba(11, 44, 77, 0.10) 15px, transparent 16px),
+    radial-gradient(circle at 16px 32px, transparent 8px, rgba(11, 44, 77, 0.10) 9px, transparent 10px),
+    radial-gradient(circle at 0px 32px, transparent 14px, rgba(11, 44, 77, 0.10) 15px, transparent 16px),
+    radial-gradient(circle at 32px 32px, transparent 14px, rgba(11, 44, 77, 0.10) 15px, transparent 16px);
   background-size: 32px 32px;
   background-attachment: fixed;
 }

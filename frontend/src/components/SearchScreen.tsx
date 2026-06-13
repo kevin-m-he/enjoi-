@@ -6,6 +6,7 @@ import { maxStepFor, STEPS, useStore } from '../store';
 import Card from './Card';
 import EmptyState from './EmptyState';
 import JobProgressBar from './JobProgressBar';
+import { LockIcon } from './WaveArt';
 
 function stageLabel(p: ProjectState): string {
   const max = maxStepFor(p);
@@ -89,9 +90,13 @@ export default function SearchScreen() {
         <h2 className="font-display text-4xl font-black uppercase tracking-tight text-ink">
           Find your <span className="text-pink">reference vibe</span>
         </h2>
-        <p className="mx-auto mt-2 max-w-xl text-sm font-medium text-prussian-700">
+        <p className="mx-auto mt-2 max-w-xl text-sm font-medium text-prussian-900">
           Search YouTube for a track whose feel you want. We analyze its style only — the reference
           audio is <span className="font-extrabold text-ink">never</span> part of your final song.
+        </p>
+        <p className="mx-auto mt-2 max-w-xl text-sm font-bold text-ink">
+          Whether you want to be the next <span className="text-pink">Justin Bieber</span> or stay
+          underground like <span className="text-prussian-900">King Steaks</span>.
         </p>
       </div>
 
@@ -180,8 +185,8 @@ export default function SearchScreen() {
                     </span>
                   )}
                   {isLocked && !isChosen && (
-                    <span className="absolute inset-0 grid place-items-center bg-washi/70 text-2xl">
-                      🔒
+                    <span className="absolute inset-0 grid place-items-center bg-prussian-900/60">
+                      <LockIcon className="h-9 w-9" />
                     </span>
                   )}
                 </div>

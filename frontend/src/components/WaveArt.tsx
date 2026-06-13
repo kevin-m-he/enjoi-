@@ -2,6 +2,22 @@
 // Used as the hero, section dividers, loading indicators and card accents.
 
 /**
+ * Themed padlock for locked steps/cards — a cyan body with a hard ink outline
+ * and a hot-pink keyhole, so "locked" reads in the app's palette instead of a
+ * default emoji.
+ */
+export function LockIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" role="img" aria-label="Locked">
+      <path d="M7 11V7.5a5 5 0 0 1 10 0V11" stroke="#0B0B0C" strokeWidth="2.5" strokeLinecap="round" />
+      <rect x="4" y="11" width="16" height="10" rx="1" fill="#00E5FF" stroke="#0B0B0C" strokeWidth="2.5" />
+      <circle cx="12" cy="15.4" r="1.7" fill="#FF2D95" />
+      <rect x="11.1" y="15.8" width="1.8" height="3.4" rx="0.6" fill="#FF2D95" />
+    </svg>
+  );
+}
+
+/**
  * The iconic clawing Great Wave, recolored to fuse the Kanagawa Prussian-blue
  * with the vibrant cyan highlights and hot-pink foam accents. Pure inline SVG.
  */
