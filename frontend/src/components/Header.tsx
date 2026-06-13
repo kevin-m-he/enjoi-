@@ -1,16 +1,12 @@
-import CapabilityBadge from './CapabilityBadge';
 import { FoamMark, PixelHeart } from './WaveArt';
 import { useStore } from '../store';
 
 export default function Header() {
-  const health = useStore((s) => s.health);
   const project = useStore((s) => s.project);
-  const wsConnected = useStore((s) => s.wsConnected);
-  const caps = health?.capabilities;
 
   return (
     <header className="sticky top-0 z-30 border-b-4 border-ink bg-washi">
-      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6">
+      <div className="mx-auto flex h-16 w-full max-w-6xl items-center px-6">
         <div className="flex min-w-0 items-center gap-3">
           <FoamMark className="hidden h-7 w-11 shrink-0 sm:block" />
           <h1 className="font-display text-3xl font-black tracking-tight">
@@ -30,39 +26,9 @@ export default function Header() {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <CapabilityBadge
-            label="GPU"
-            ok={!!caps?.gpu}
-            tooltipOn="GPU detected — fast instrumental generation."
-            tooltipOff="No GPU detected — generation falls back to CPU (slower, smaller model)."
-          />
-          <CapabilityBadge
-            label="MusicGen"
-            ok={!!caps?.musicgen}
-            tooltipOn="MusicGen is available for instrumental generation."
-            tooltipOff="MusicGen not installed — the built-in procedural engine will generate instrumentals instead."
-          />
-          <CapabilityBadge
-            label="Whisper"
-            ok={!!caps?.whisper}
-            tooltipOn="Whisper is available for lyric transcription."
-            tooltipOff="Whisper not installed — vocals are segmented by energy only and no lyric transcript is produced."
-          />
-          <span
-            title={
-              wsConnected
-                ? 'Live job updates connected'
-                : 'Live updates offline — falling back to polling'
-            }
-            className={`ml-1 inline-block h-3 w-3 border-2 border-ink ${
-              wsConnected ? 'bg-cyan' : 'bg-washi-200'
-            }`}
-          />
-        </div>
       </div>
       {/* Support the dev — its own full-width strip so it never overlaps the
-          project name/badges, and is visible on every screen size. */}
+          project name, and is visible on every screen size. */}
       <a
         href="https://venmo.com/u/Kevin-He-516"
         target="_blank"
