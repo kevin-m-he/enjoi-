@@ -33,7 +33,7 @@ from ..core import audio as core_audio
 from ..core import config, deps, storage
 from ..core.errors import PipelineError
 from ..core.jobs import subprogress
-from . import synth, unique
+from . import band, synth, unique
 
 SR = config.SAMPLE_RATE
 
@@ -74,8 +74,8 @@ _MUSICGEN_CACHE: dict = {}
 # Engine selection
 # ---------------------------------------------------------------------------
 
-def _select_engine() -> tuple[str, str | None]:
-    """→ ("musicgen", model_id) or ("procedural", None)."""
+def _musicgen_choice() -> tuple[str, str | None]:
+    """MusicGen engine + model id, or procedural if audiocraft/torch absent."""
     if not deps.has("audiocraft"):
         return "procedural", None
     torch = deps.optional_import("torch")
@@ -95,6 +95,27 @@ def _select_engine() -> tuple[str, str | None]:
     except Exception:
         pass
     return "musicgen", "facebook/musicgen-small"  # < 8 GB VRAM or CPU
+
+
+def _select_engine() -> tuple[str, str | None]:
+    """Pick the generation engine.
+
+    DEFAULT is the real-instrument 'band' SoundFont engine (sampled instruments,
+    fast, leveled) — the client wants real instruments, not computer-generated
+    audio. MusicGen is opt-in via ENJOI_ENGINE=musicgen (or ENJOI_MUSICGEN_MODEL);
+    the procedural synth is the last-ditch fallback.
+    """
+    env = os.environ.get("ENJOI_ENGINE", "").strip().lower()
+    if env == "procedural":
+        return "procedural", None
+    if env == "musicgen" or os.environ.get("ENJOI_MUSICGEN_MODEL", "").strip():
+        return _musicgen_choice()
+    if env == "band" or not env:
+        if band.available():
+            return "band", None
+    # band requested/default but unavailable, or unknown env → best available
+    mg = _musicgen_choice()
+    return mg if mg[0] == "musicgen" else ("procedural", None)
 
 
 # ---------------------------------------------------------------------------
@@ -455,6 +476,8 @@ def generate_instrumental(project, plan: dict, progress) -> dict:
     initial_similarity = int(plan.get("similarity", 50) or 0)
     effective_similarity = initial_similarity
     current_plan = dict(plan)
+    # the band engine arranges by genre — make sure the plan carries it.
+    current_plan.setdefault("genre_tags", profile.get("genre_tags") or [])
     failing_aspects: set[str] = set()
     procedural_extra = 0
     attempts = 0
@@ -473,12 +496,12 @@ def generate_instrumental(project, plan: dict, progress) -> dict:
                     "Could not produce an instrumental that passes the originality "
                     "audit. Try again or lower the similarity slider.")
 
-            # Progress window for this attempt (monotonic across retries).
-            lo = 0.92 * (1.0 - 0.55 ** (attempts - 1))
-            hi = 0.92 * (1.0 - 0.55 ** attempts)
-            render_p = subprogress(progress, lo, lo + 0.8 * (hi - lo),
+            # Single render (audit is advisory), so fill the bar smoothly: render
+            # 0..85%, audit 85..96%, then 100% on accept.
+            hi = 0.96
+            render_p = subprogress(progress, 0.0, 0.85,
                                    f"Attempt {attempts}: " if attempts > 1 else "")
-            audit_p = subprogress(progress, lo + 0.8 * (hi - lo), hi)
+            audit_p = subprogress(progress, 0.85, hi)
 
             seed = base_seed + (attempts - 1)
             nudge = ""
@@ -489,6 +512,18 @@ def generate_instrumental(project, plan: dict, progress) -> dict:
 
             # ---- render -----------------------------------------------------
             audio = None
+            if engine_kind == "band":
+                engine_name = "band-soundfont"
+                render_p(0.0, "Engine: real-instrument band (SoundFont)")
+                try:
+                    audio = band.render_band(current_plan, render_p)
+                except Exception as exc:
+                    render_p(0.0, f"Band engine failed ({type(exc).__name__}) — "
+                                  "falling back")
+                    engine_kind = "musicgen" if deps.has("audiocraft") else "procedural"
+                    if engine_kind == "musicgen":
+                        _, model_id = _musicgen_choice()
+
             if engine_kind == "musicgen":
                 engine_name = (model_id or "musicgen").split("/")[-1]
                 render_p(0.0, f"Engine: MusicGen ({engine_name})")

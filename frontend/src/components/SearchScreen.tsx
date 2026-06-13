@@ -36,10 +36,7 @@ export default function SearchScreen() {
   const refJob = activeJobs.reference ? jobs[activeJobs.reference] : undefined;
   const refRunning = refJob?.status === 'queued' || refJob?.status === 'running';
   const refDone = refJob?.status === 'done' || !!project?.reference?.analyzed;
-  // A reference is "claimed" for the current project once one is selected/running.
-  // While claimed, every other result card is locked (single reference at a time).
-  const refClaimed = !!project?.reference || refRunning;
-  // The chosen video id, so we can visibly mark the selected card.
+  // The chosen video id, so we can visibly mark the current project's reference.
   const chosenVideoId = project?.reference?.video_id ?? null;
 
   useEffect(() => {
@@ -71,8 +68,11 @@ export default function SearchScreen() {
   }, [q]);
 
   const onSelect = async (r: SearchResult) => {
-    // UX fix #2: never start a second reference job / never stack selections.
-    if (selecting || refRunning || refClaimed) return;
+    // Only block while a selection is mid-flight or a reference job is running
+    // (prevents double-submit). Picking a track when a project already has a
+    // reference starts a FRESH project (handled in the store) — so the user can
+    // always search and pick a new song.
+    if (selecting || refRunning) return;
     setSelecting(r.video_id);
     try {
       await startReference(r);
@@ -82,7 +82,7 @@ export default function SearchScreen() {
   };
 
   const locked = (videoId: string): boolean =>
-    selecting !== null || (refClaimed && videoId !== chosenVideoId);
+    (selecting !== null && selecting !== videoId) || (refRunning && videoId !== chosenVideoId);
 
   return (
     <div className="space-y-8">
@@ -202,9 +202,9 @@ export default function SearchScreen() {
         </div>
       )}
 
-      {refClaimed && results && results.length > 0 && (
+      {chosenVideoId && results && results.length > 0 && (
         <p className="text-center text-xs font-bold uppercase tracking-tight text-prussian-700">
-          One reference at a time. To swap tracks, open a fresh project from below.
+          Picking another track starts a fresh song — your current one stays saved below.
         </p>
       )}
 

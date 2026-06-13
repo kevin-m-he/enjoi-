@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, mediaUrl } from '../lib/api';
 import { useStore } from '../store';
+
 import AudioPlayer from './AudioPlayer';
 import Card from './Card';
 import EmptyState from './EmptyState';
@@ -60,7 +61,9 @@ export default function SimilarityScreen() {
   const startGenerate = useStore((s) => s.startGenerate);
   const setStep = useStore((s) => s.setStep);
 
-  const [value, setValue] = useState<number>(project?.similarity ?? 70);
+  // Persisted in the store so navigating away and back keeps the user's choice.
+  const value = useStore((s) => s.similarity);
+  const setValue = useStore((s) => s.setSimilarity);
   const [summary, setSummary] = useState<string>('');
   const [showLimitNote, setShowLimitNote] = useState<boolean>(
     () => localStorage.getItem(LIMIT_NOTE_KEY) !== '1'
@@ -95,9 +98,13 @@ export default function SimilarityScreen() {
     return <EmptyState title="No project open" hint="Start from the Search step." />;
   }
 
-  const engineIsMusicGen = (project.instrumental?.engine ?? grid?.engine ?? '')
-    .toLowerCase()
-    .includes('musicgen');
+  const engineRaw = (project.instrumental?.engine ?? grid?.engine ?? '').toLowerCase();
+  const engineLabel = engineRaw.includes('band')
+    ? 'Live band'
+    : engineRaw.includes('musicgen')
+      ? 'MusicGen'
+      : 'Procedural';
+  const engineIsReal = engineRaw.includes('band') || engineRaw.includes('musicgen');
 
   return (
     <div className="space-y-6 pt-4">
@@ -211,7 +218,7 @@ export default function SimilarityScreen() {
         job={job}
         onRetry={() => void startGenerate(value)}
         prominent
-        hint="Includes the originality audit — sections that come out too close to the reference are regenerated automatically, so this bar can take a few extra passes."
+        hint="Playing the band and mixing it down — drums, bass, guitar/keys and melody, leveled into one cohesive instrumental."
       />
 
       {project.instrumental && instrumentalUrl && !generating && (
@@ -220,15 +227,11 @@ export default function SimilarityScreen() {
           actions={
             <span
               className={`rounded-sm border-2 border-ink px-3 py-1 text-xs font-extrabold uppercase ${
-                engineIsMusicGen ? 'bg-pink text-white' : 'bg-washi-200 text-prussian-700'
+                engineIsReal ? 'bg-pink text-white' : 'bg-washi-200 text-prussian-700'
               }`}
-              title={
-                engineIsMusicGen
-                  ? `Generated with ${project.instrumental.engine}`
-                  : 'Generated with the built-in procedural engine (MusicGen not available)'
-              }
+              title={`Generated with the ${project.instrumental.engine} engine`}
             >
-              {engineIsMusicGen ? 'MusicGen' : 'Procedural engine'}
+              {engineLabel}
             </span>
           }
         >

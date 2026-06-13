@@ -46,6 +46,10 @@ interface AppState {
   // navigation
   step: number;
 
+  // similarity slider value, persisted in the store so it survives screen
+  // navigation / re-mounts (a local useState reverted the user's choice).
+  similarity: number;
+
   // data
   project: ProjectState | null;
   projects: ProjectState[];
@@ -63,6 +67,7 @@ interface AppState {
   checkHealth: () => Promise<void>;
   setWsConnected: (v: boolean) => void;
   setStep: (n: number) => void;
+  setSimilarity: (n: number) => void;
   toast: (text: string, kind?: ToastKind) => void;
   dismissToast: (id: number) => void;
 
@@ -146,6 +151,7 @@ export const useStore = create<AppState>()((set, get) => {
     health: null,
     wsConnected: false,
     step: 0,
+    similarity: 70,
     project: null,
     projects: [],
     jobs: {},
@@ -187,6 +193,10 @@ export const useStore = create<AppState>()((set, get) => {
       set({ step: n });
     },
 
+    setSimilarity(n) {
+      set({ similarity: Math.min(100, Math.max(0, Math.round(n))) });
+    },
+
     async loadProjects() {
       try {
         const r = await api.listProjects();
@@ -213,6 +223,7 @@ export const useStore = create<AppState>()((set, get) => {
     async openProject(p) {
       set({
         project: p,
+        similarity: p.similarity ?? 70,
         profile: null,
         grid: null,
         vocalAnalysis: null,
@@ -255,9 +266,21 @@ export const useStore = create<AppState>()((set, get) => {
     async startReference(result) {
       try {
         let p = get().project;
-        if (!p) {
+        // Start a FRESH project whenever there's no open project OR the open one
+        // already has a reference — so picking another song always begins a new
+        // song instead of being locked to the first reference.
+        if (!p || p.reference) {
           p = await api.createProject(result.title);
-          set({ project: p });
+          set({
+            project: p,
+            similarity: 70,
+            profile: null,
+            grid: null,
+            vocalAnalysis: null,
+            arrangement: null,
+            uniqueness: null,
+            manifest: null,
+          });
         }
         const { job_id } = await api.setReference(p.id, result.url);
         set((s) => ({

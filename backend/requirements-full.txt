@@ -1,3 +1,10 @@
+# Real-instrument generation engine (DEFAULT): sampled instruments via a
+# General-MIDI SoundFont. `pip install tinysoundfont` — pure pip wheels, no
+# native install. band.py auto-downloads FluidR3_GM.sf2 (~148 MB) to the models
+# dir on first use. This is the default engine; MusicGen below is opt-in
+# (ENJOI_ENGINE=musicgen).
+tinysoundfont>=0.x
+
 # Optional quality upgrades — GPU MusicGen + local Whisper transcription.
 # Each maps to a capability flag in /api/health; the app falls back gracefully
 # without them (see docs/API_CONTRACT.md rule 2).
