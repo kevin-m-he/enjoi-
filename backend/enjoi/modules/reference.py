@@ -170,8 +170,13 @@ def _download_reference(project: Project, url: str, p: ProgressFn) -> tuple[dict
         "video_id": info.get("id") or "",
         "duration_sec": float(info.get("duration") or 0.0),
         "thumbnail_url": info.get("thumbnail") or "",
+        "uploader": info.get("uploader") or "",
         "tags": list(info.get("tags") or []),
         "categories": list(info.get("categories") or []),
+        "keywords": list(info.get("categories") or []),
+        # Trim the description so the genre miner sees real keywords without a
+        # giant blob (links, credits, hashtags often carry genre cues).
+        "description": (str(info.get("description") or "")[:1500]),
     }
     return meta, files[0]
 
@@ -230,7 +235,7 @@ def _analyze_audio(y: np.ndarray, sr: int, duration: float, ref_wav: Path,
     energy_curve = _energy_curve(bar_spans, rms_env, onset_env, frame_times)
 
     p(0.74, "Profiling instrumentation…")
-    instrumentation = _instrumentation(ref_wav, S, H, freqs, e_harm, e_perc)
+    instrumentation = _instrumentation(ref_wav, S, H, freqs, e_harm, e_perc, p)
 
     p(0.80, "Analyzing groove…")
     groove = _groove(
@@ -655,9 +660,23 @@ def _energy_curve(bar_spans: list[tuple[float, float]], rms_env: np.ndarray,
 
 
 def _instrumentation(ref_wav: Path, S: np.ndarray, H: np.ndarray,
-                     freqs: np.ndarray, e_harm: float, e_perc: float) -> dict:
-    """Demucs stem activity if available; HPSS + band-energy heuristics otherwise."""
-    via_demucs = _instrumentation_demucs(ref_wav)
+                     freqs: np.ndarray, e_harm: float, e_perc: float,
+                     p: ProgressFn) -> dict:
+    """Per-instrument activity 0..1, natural instruments first.
+
+    PRIMARY path: Demucs ``htdemucs_6s`` source separation (drums, bass, other,
+    vocals, guitar, piano) on the GPU when available. Each stem's activity is a
+    blend of its loudness (RMS relative to the mix) and how much of the track it
+    is *active* (fraction of frames above a per-stem noise floor), normalized so
+    the most prominent instrument is ~1.0. ``melodic`` (= max of guitar/piano/
+    other) is kept for backward compatibility, and ``other`` carries the
+    residual (synths / strings / etc.).
+
+    FALLBACK (demucs/torch absent or failed): the HPSS + band-energy heuristic,
+    which still emits every key — guitar/piano are estimated from spectral cues
+    so consumers always see the full dict.
+    """
+    via_demucs = _instrumentation_demucs(ref_wav, p)
     if via_demucs is not None:
         return via_demucs
 
@@ -674,19 +693,40 @@ def _instrumentation(ref_wav: Path, S: np.ndarray, H: np.ndarray,
     total_h = float(p_harm.sum()) + 1e-12
     voc_band = float(p_harm[(freqs >= 200.0) & (freqs <= 4000.0)].sum()) / total_h
     formant = float(p_harm[(freqs >= 300.0) & (freqs <= 3400.0)].sum()) / total_h
+    # Plucked-string / piano cues live in the mid/upper-mid harmonic band; a
+    # crude split lets us still surface guitar vs piano without separation.
+    guitar_band = float(p_harm[(freqs >= 250.0) & (freqs <= 2500.0)].sum()) / total_h
+    piano_band = float(p_harm[(freqs >= 150.0) & (freqs <= 5000.0)].sum()) / total_h
     del p_harm
     voc_raw = 0.5 * voc_band + 0.5 * formant
 
     clip01 = lambda v: float(np.clip(v, 0.0, 1.0))
+    melodic = clip01(frac_harm / 0.65)
+    guitar = round(clip01(0.6 * melodic + 0.4 * clip01(guitar_band / 0.5)), 2)
+    piano = round(clip01(0.5 * melodic + 0.5 * clip01(piano_band / 0.6)), 2)
     return {
         "drums": round(clip01(frac_perc / 0.35), 2),
         "bass": round(clip01(bass_frac / 0.18), 2),
-        "melodic": round(clip01(frac_harm / 0.65), 2),
+        "guitar": guitar,
+        "piano": piano,
+        "other": round(melodic, 2),
+        "melodic": round(max(melodic, guitar, piano), 2),
         "vocals": round(clip01((voc_raw - 0.30) / 0.45), 2),
     }
 
 
-def _instrumentation_demucs(ref_wav: Path) -> dict | None:
+# Natural instruments are listed first so consumers that iterate the dict
+# encounter real instruments (guitar/piano/drums/bass) before the synth-ish
+# residual ("other"). ``melodic`` stays for backward compatibility.
+_DEMUCS_MODEL = "htdemucs_6s"
+_NATURAL_ORDER = ("drums", "bass", "guitar", "piano", "vocals", "other")
+
+
+def _instrumentation_demucs(ref_wav: Path, p: ProgressFn) -> dict | None:
+    """htdemucs_6s stem activity (drums/bass/guitar/piano/vocals/other).
+
+    Returns the activity dict, or ``None`` if demucs/torch is unavailable or the
+    separation fails (the caller then uses the spectral fallback)."""
     if not (deps.has("demucs") and deps.has("torch")):
         return None
     try:
@@ -694,28 +734,64 @@ def _instrumentation_demucs(ref_wav: Path) -> dict | None:
         from demucs.apply import apply_model
         from demucs.pretrained import get_model
 
-        model = get_model("htdemucs")
+        p(0.74, "Separating stems (guitar, piano, drums, bass)…")
+        model = get_model(_DEMUCS_MODEL)
+        model.eval()
         wav, _ = core_audio.load_audio(ref_wav, sr=int(model.samplerate), mono=False)
         if wav.ndim == 1:
             wav = np.stack([wav, wav])
         if wav.shape[0] == 1:
             wav = np.vstack([wav, wav])
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        tensor = torch.tensor(wav[:2][None], dtype=torch.float32)
+        wav = np.ascontiguousarray(wav[:2], dtype=np.float32)
+
+        device = "cuda" if deps.gpu_available() and torch.cuda.is_available() else "cpu"
+        # Per-channel mix energy for relative-loudness normalization.
+        mix_rms = float(np.sqrt(np.mean(wav.astype(np.float64) ** 2))) + 1e-9
+
+        tensor = torch.from_numpy(wav[None])
         with torch.no_grad():
-            stems = apply_model(model, tensor, device=device, split=True)[0].cpu().numpy()
-        stem_rms = {
-            name: float(np.sqrt(np.mean(stem**2)))
-            for name, stem in zip(model.sources, stems)
+            stems = apply_model(
+                model, tensor, device=device, split=True, overlap=0.10, progress=False
+            )[0].cpu().numpy()
+        if device == "cuda":
+            try:
+                torch.cuda.empty_cache()
+            except Exception:
+                pass
+
+        p(0.79, "Measuring instrument activity…")
+        sr = int(model.samplerate)
+        act_raw: dict[str, float] = {}
+        for name, stem in zip(model.sources, stems):
+            mono = stem.mean(axis=0).astype(np.float64)
+            loud = float(np.sqrt(np.mean(mono ** 2))) / mix_rms  # relative loudness
+            # Frame activity: fraction of ~46 ms frames whose RMS clears a noise
+            # floor set relative to the stem's own peak frame energy.
+            win = max(int(0.046 * sr), 1)
+            n_win = max(len(mono) // win, 1)
+            frames = mono[: n_win * win].reshape(n_win, win)
+            fr_rms = np.sqrt(np.mean(frames ** 2, axis=1) + 1e-12)
+            floor = 0.06 * float(fr_rms.max() if fr_rms.size else 0.0)
+            active = float(np.mean(fr_rms > floor)) if floor > 0 else 0.0
+            act_raw[name] = 0.7 * loud + 0.3 * (loud * active)
+
+        peak = max(act_raw.values()) + 1e-12
+        norm = {name: float(np.clip(v / peak, 0.0, 1.0)) for name, v in act_raw.items()}
+
+        guitar = norm.get("guitar", 0.0)
+        piano = norm.get("piano", 0.0)
+        other = norm.get("other", 0.0)
+        out = {
+            "drums": round(norm.get("drums", 0.0), 2),
+            "bass": round(norm.get("bass", 0.0), 2),
+            "guitar": round(guitar, 2),
+            "piano": round(piano, 2),
+            "vocals": round(norm.get("vocals", 0.0), 2),
+            "other": round(other, 2),
+            "melodic": round(max(guitar, piano, other), 2),
         }
-        peak = max(stem_rms.values()) + 1e-12
-        act = {name: round(min(1.0, r / peak), 2) for name, r in stem_rms.items()}
-        return {
-            "drums": act.get("drums", 0.5),
-            "bass": act.get("bass", 0.5),
-            "melodic": act.get("other", 0.5),
-            "vocals": act.get("vocals", 0.5),
-        }
+        # Emit in natural-first order.
+        return {k: out[k] for k in (*_NATURAL_ORDER, "melodic")}
     except Exception:
         return None
 
@@ -809,47 +885,74 @@ def _groove(S: np.ndarray, freqs: np.ndarray, onset_env: np.ndarray,
 # tags
 # ---------------------------------------------------------------------------
 
+# Genre lexicon. Order matters: more specific genres are listed before the
+# broad "pop" catch-all so a folk/country song is never mislabeled. Each entry's
+# keywords are matched (substring) against the pooled YouTube metadata text.
 _GENRE_KEYWORDS = [
-    ("hip hop", ("hip hop", "hip-hop", "rap", "trap", "drill", "boom bap")),
-    ("edm", ("edm", "house", "techno", "electro", "dubstep", "drum & bass", "dnb", "dance", "club mix")),
-    ("rock", ("rock", "punk", "grunge", "indie rock")),
-    ("metal", ("metal", "metalcore")),
-    ("r&b", ("r&b", "rnb", "soul", "neo soul")),
-    ("country", ("country", "bluegrass")),
-    ("folk", ("folk", "singer-songwriter")),
-    ("jazz", ("jazz", "bossa", "swing band")),
-    ("blues", ("blues",)),
-    ("classical", ("classical", "orchestra", "symphony", "concerto")),
-    ("lofi", ("lofi", "lo-fi", "chillhop")),
-    ("latin", ("latin", "reggaeton", "salsa", "bachata")),
-    ("k-pop", ("k-pop", "kpop")),
+    ("country", ("country", "americana", "bluegrass", "nashville", "honky tonk",
+                 "alt-country", "alt country")),
+    ("folk", ("folk", "singer-songwriter", "singer songwriter", "indie folk",
+              "folk rock", "stomp")),
     ("acoustic", ("acoustic", "unplugged")),
-    ("pop", ("pop",)),
+    ("hip hop", ("hip hop", "hip-hop", "hiphop", "rap", "trap", "drill",
+                 "boom bap", "trapsoul")),
+    ("edm", ("edm", "house", "techno", "electro", "dubstep", "drum & bass",
+             "dnb", "future bass", "club mix", "edm mix")),
+    ("dance", ("dance pop", "dance-pop", "dancefloor")),
+    ("metal", ("metal", "metalcore", "djent", "deathcore", "thrash")),
+    ("rock", ("rock", "punk", "grunge", "indie rock", "alt rock", "alternative",
+              "garage")),
+    ("r&b", ("r&b", "rnb", "r & b", "soul", "neo soul", "neo-soul", "motown")),
+    ("jazz", ("jazz", "bossa", "swing band", "bebop", "fusion")),
+    ("blues", ("blues",)),
+    ("classical", ("classical", "orchestra", "orchestral", "symphony",
+                   "concerto", "soundtrack", "score", "cinematic")),
+    ("lofi", ("lofi", "lo-fi", "chillhop")),
+    ("latin", ("latin", "reggaeton", "salsa", "bachata", "samba", "afrobeat",
+               "cumbia")),
+    ("k-pop", ("k-pop", "kpop", "k pop")),
+    ("pop", ("pop", "synthpop", "electropop")),
 ]
 _MOOD_KEYWORDS = [
-    ("party", ("party", "club", "banger")),
+    ("party", ("party", "club", "banger", "turn up")),
     ("romantic", ("love", "romance", "valentine")),
-    ("melancholic", ("sad", "heartbreak", "cry", "lonely")),
-    ("chill", ("chill", "relax", "calm", "study")),
-    ("happy", ("happy", "feel good", "sunshine")),
-    ("dark", ("dark", "night", "shadow")),
-    ("epic", ("epic", "cinematic")),
+    ("melancholic", ("sad", "heartbreak", "heartbroken", "cry", "lonely",
+                     "lonesome", "grief", "tears", "stick season")),
+    ("reflective", ("reflective", "introspective", "nostalgia", "nostalgic",
+                    "memories")),
+    ("intimate", ("intimate", "stripped", "stripped back", "bedroom")),
+    ("chill", ("chill", "relax", "calm", "study", "mellow")),
+    ("happy", ("happy", "feel good", "feel-good", "sunshine", "upbeat")),
+    ("dark", ("dark", "night", "shadow", "moody")),
+    ("epic", ("epic", "cinematic", "anthem")),
 ]
+
+# Acoustic/organic instrumentation evidence → these genres should win over pop.
+_ACOUSTIC_GENRES = ("folk", "country", "acoustic", "singer-songwriter")
 
 
 def _tags(meta: dict, bpm: float, key: dict, energy_mean: float,
           groove: dict, instrumentation: dict) -> tuple[list[str], list[str]]:
-    """Genre + mood tags from YouTube metadata and audio heuristics (≥1 of each)."""
+    """Genre + mood tags from YouTube metadata (weighted heaviest) and the
+    now-accurate instrumentation, with sensible audio rules (≥1 of each).
+
+    An acoustic-guitar-led, organically-drummed, moderate-tempo track resolves
+    to folk / country / acoustic — never "pop" by default. "pop" is only a last
+    resort when the evidence is genuinely ambiguous.
+    """
     text = " ".join(
         str(x).lower()
         for x in (
-            [meta.get("title", ""), meta.get("channel", "")]
+            [meta.get("title", ""), meta.get("channel", ""),
+             meta.get("description", ""), meta.get("uploader", "")]
             + list(meta.get("tags") or [])
             + list(meta.get("categories") or [])
+            + list(meta.get("keywords") or [])
         )
         if x
     )
 
+    # 1) Metadata is the strongest signal — mine it hard.
     genres: list[str] = []
     for name, words in _GENRE_KEYWORDS:
         if any(w in text for w in words) and name not in genres:
@@ -857,31 +960,92 @@ def _tags(meta: dict, bpm: float, key: dict, energy_mean: float,
         if len(genres) >= 3:
             break
 
-    pattern = groove.get("pattern_class", "")
+    # 2) Instrumentation + tempo + groove rules. These either CONFIRM the
+    #    metadata or, when metadata is silent, classify from the audio. Using
+    #    the demucs-accurate stems, an acoustic track reads as folk/country.
+    pattern = str(groove.get("pattern_class", ""))
     swing = float(groove.get("swing", 0.0))
-    if not genres:  # audio-only heuristics
-        if pattern == "four_on_floor" and 112 <= bpm <= 140:
-            genres.append("dance")
-        elif bpm <= 95 and pattern == "halftime":
-            genres.append("hip hop")
-        elif swing >= 0.45:
-            genres.append("jazz")
-    if not genres:
-        genres.append("pop")
+    inst = instrumentation or {}
+    drums = float(inst.get("drums") or 0.0)
+    bass = float(inst.get("bass") or 0.0)
+    guitar = float(inst.get("guitar") or 0.0)
+    piano = float(inst.get("piano") or 0.0)
+    other = float(inst.get("other") or inst.get("melodic") or 0.0)
+    vocals = float(inst.get("vocals") or 0.0)
+    # "Other" carries synths/strings; a high other vs low guitar/piano is the
+    # electronic signature.
+    organic = max(guitar, piano)
+    synthy = other > 0.55 and other > organic + 0.12
 
+    audio_genre: str | None = None
+    if synthy and pattern == "four_on_floor":
+        audio_genre = "edm"
+    elif synthy and pattern in ("backbeat", "four_on_floor") and bpm >= 110:
+        audio_genre = "pop"
+    elif drums >= 0.35 and bass >= 0.3 and pattern == "halftime" and bpm <= 100 \
+            and organic < 0.5:
+        audio_genre = "hip hop"
+    elif guitar >= 0.55 and other > guitar + 0.15 and drums >= 0.55 \
+            and energy_mean >= 0.6:
+        audio_genre = "rock"  # loud, distorted-leaning guitar + loud drums
+    elif organic >= 0.45 and not synthy and bpm <= 150:
+        # Acoustic/real-instrument led, not electronic → folk / country / acoustic.
+        if drums >= 0.3 and bass >= 0.3 and 80 <= bpm <= 150:
+            audio_genre = "country"   # full band, gentle backbeat
+        else:
+            audio_genre = "folk"      # sparse guitar/piano + voice
+    elif swing >= 0.45:
+        audio_genre = "jazz"
+
+    if not genres:
+        if audio_genre:
+            genres.append(audio_genre)
+    else:
+        # If metadata is generic ("pop" only) but the audio is clearly organic,
+        # prefer the acoustic reading so a folk/country song isn't called pop.
+        if genres == ["pop"] and audio_genre in _ACOUSTIC_GENRES:
+            genres = [audio_genre, "pop"]
+        elif audio_genre and audio_genre not in genres and len(genres) < 3:
+            genres.append(audio_genre)
+
+    # When the AUDIO is clearly acoustic/organic, an acoustic-family genre must
+    # LEAD even if the metadata also carried a broader tag (e.g. an indie-folk
+    # song tagged "rock"/"pop"). This keeps the secondary tag but ensures the
+    # generation palette resolves to acoustic timbres, not electric/synth.
+    if audio_genre in _ACOUSTIC_GENRES:
+        acoustic_in = [g for g in genres if g in _ACOUSTIC_GENRES]
+        if not acoustic_in:
+            genres.insert(0, audio_genre)
+        elif genres[0] not in _ACOUSTIC_GENRES:
+            lead = audio_genre if audio_genre in acoustic_in else acoustic_in[0]
+            genres = [lead] + [g for g in genres if g != lead]
+
+    if not genres:
+        genres.append("pop")  # truly ambiguous
+
+    # 3) Mood — metadata keywords first, then key mode + energy + tempo.
     moods: list[str] = []
     for name, words in _MOOD_KEYWORDS:
         if any(w in text for w in words) and name not in moods:
             moods.append(name)
     mode = key.get("mode", "major")
+    low_energy = energy_mean < 0.5
+    if mode == "minor":
+        if "melancholic" not in moods:
+            moods.append("melancholic")
+        if low_energy and "reflective" not in moods:
+            moods.append("reflective")
+    if low_energy and bpm < 110:
+        if "intimate" not in moods:
+            moods.append("intimate")
+        if "mellow" not in moods and "chill" not in moods:
+            moods.append("mellow")
     if energy_mean >= 0.6 and bpm >= 118 and "energetic" not in moods:
         moods.append("energetic")
-    if mode == "major" and energy_mean >= 0.45 and "bright" not in moods:
+    if mode == "major" and energy_mean >= 0.55 and bpm >= 100 and "bright" not in moods:
         moods.append("bright")
-    if mode == "minor" and "moody" not in moods:
-        moods.append("moody")
-    if bpm < 90 and energy_mean < 0.5 and "laid-back" not in moods:
-        moods.append("laid-back")
+    if mode == "major" and not moods:
+        moods.append("warm")
     if not moods:
         moods.append("warm")
     return genres[:3], moods[:3]

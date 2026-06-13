@@ -168,7 +168,7 @@ def export_song(project: "Project", master_wav: Path, metadata: dict,
   "key": {"tonic":"A","mode":"minor","confidence":0.81},
   "structure": [{"label":"intro","start":0.0,"end":12.3,"bars":8}],
   "energy_curve": {"per_bar_rms":[...], "per_bar_flux":[...]},
-  "instrumentation": {"drums":0.9,"bass":0.8,"melodic":0.7,"vocals":0.6},
+  "instrumentation": {"drums":0.9,"bass":0.8,"guitar":0.95,"piano":0.4,"vocals":0.6,"other":0.2,"melodic":0.95},
   "groove": {"swing":0.12,"pattern_class":"backbeat","onset_histogram":[16 floats]},
   "genre_tags": ["pop"], "mood_tags": ["energetic"],
   "ref_audio": "_ref_cache/reference.wav",
@@ -187,6 +187,24 @@ sequences (semitones, comma-joined). `chord_sequence` is one chord per bar.
 `chroma_downbeat` is the beat-synchronous chroma matrix (one 12-vector per downbeat,
 L2-normalized). `fp_hashes` are 32-bit spectral landmark hashes (Chromaprint-style).
 Structure labels: `intro|verse|prechorus|chorus|bridge|outro|inst`.
+
+`instrumentation` is a per-instrument **activity** map (each 0..1, the most
+prominent instrument ≈ 1.0). NATURAL instruments are listed first. It is produced
+by Demucs `htdemucs_6s` 6-stem separation (drums, bass, guitar, piano, vocals,
+other) on the GPU when available — each stem's activity blends its loudness (RMS
+relative to the mix) with the fraction of frames it is active above a per-stem
+noise floor. Keys, in order:
+- `drums`, `bass` — rhythm section.
+- `guitar`, `piano` — natural melodic/harmonic instruments (acoustic-first).
+- `vocals` — lead vocal stem.
+- `other` — the residual stem (synths / strings / brass / etc.).
+- `melodic` — `max(guitar, piano, other)`, kept for backward compatibility with
+  consumers that only read the legacy melodic activity.
+When Demucs/torch are absent the same keys are still emitted, estimated from an
+HPSS + band-energy heuristic (guitar/piano derived from spectral cues). Consumers
+MUST tolerate the presence of these added keys; `similarity.py` reads them to
+build a natural-instrument-first generation palette (real instruments before any
+synth role).
 
 ### generation plan (in-memory, from similarity.py)
 ```json

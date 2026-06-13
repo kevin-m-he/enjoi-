@@ -237,22 +237,31 @@ def build_generation_plan(profile: dict, similarity: int, rng_seed: int | None =
 def similarity_summary(profile: dict, similarity: int) -> str:
     """Deterministic human-readable label for the slider (no RNG needed).
 
-    Tempo is fixed to the reference, so the label always reads "same tempo".
+    Tempo is fixed to the reference, so the label always reads "same tempo". At
+    100% the label reflects that the track is as close to the reference as the
+    originality audit allows — same key, tempo, structure and the reference's
+    full natural instrument palette — with melody & chords still 100% original
+    (the audit only gates melody/chords).
     """
     s = _clamp_similarity(similarity)
     col = _column(s)
+    if col == 100:
+        return (
+            "100% — as close to the reference as possible: same key, same tempo, "
+            "same structure & bar lengths, matched groove, and the reference's "
+            "full natural instrument palette — melody & chords still 100% original."
+        )
     key_phrase = {
         0: "any key", 25: "related key", 50: "same mode",
-        75: "same key family", 100: "same key",
+        75: "same key family",
     }[col]
     structure_phrase = {
         0: "free structure", 25: "loose structure with a chorus",
         50: "same section count", 75: "same section order",
-        100: "same structure & bar lengths",
     }[col]
     groove_phrase = {
         0: "free groove", 25: "genre-typical groove", 50: "similar swing",
-        75: "similar groove", 100: "matched groove",
+        75: "similar groove",
     }[col]
     return (
         f"{s}% — {key_phrase}, {structure_phrase}, same tempo, {groove_phrase}"
@@ -550,70 +559,154 @@ def _plan_energy_per_bar(s: int, structure: list[dict], profile: dict) -> list[f
 
 # ---- palette -------------------------------------------------------------------
 
+# Electronic genres are the only ones that should get synth roles by default;
+# everywhere else the palette stays natural (real instruments first).
+_ELECTRONIC_GENRES = {"edm", "dance", "house", "trap", "k-pop"}
+# Synth/electronic engine roles we strip from natural-genre palettes.
+_SYNTH_ROLES = {"synth_keys", "synth_lead", "pluck", "arp", "pad", "sub_bass",
+                "808", "lead"}
+
+
 def _reference_activity(profile: dict) -> dict:
-    """Reference stem activity 0..1 for drums/bass/melodic/vocals."""
+    """Per-instrument activity 0..1 from the reference profile.
+
+    Reads the natural-first instrumentation keys produced by reference.py
+    (drums/bass/guitar/piano/other/vocals) and keeps ``melodic`` for backward
+    compatibility (falling back to it when a specific key is missing)."""
     inst = profile.get("instrumentation") or {}
+    melodic = _safe_float(inst.get("melodic"), 0.5)
+    guitar = _safe_float(inst.get("guitar"), 0.0)
+    piano = _safe_float(inst.get("piano"), 0.0)
+    other = _safe_float(inst.get("other"), 0.0)
+    # If only the legacy "melodic" key exists, treat it as the melodic content.
+    if guitar <= 0.0 and piano <= 0.0 and other <= 0.0:
+        other = melodic
     return {
         "drums": _safe_float(inst.get("drums"), 0.7),
         "bass": _safe_float(inst.get("bass"), 0.6),
-        "melodic": _safe_float(inst.get("melodic"), 0.5),
+        "guitar": guitar,
+        "piano": piano,
+        "other": other,
+        "melodic": max(melodic, guitar, piano, other),
         "vocals": _safe_float(inst.get("vocals"), 0.0),
     }
 
 
+def _natural_palette(act: dict, gp: dict, electronic: bool) -> list[str]:
+    """Ordered NATURAL-instrument-first palette from the reference's detected
+    instruments.
+
+    Real instruments that are actually present (drums, bass, guitar, piano) lead
+    the palette; the genre profile's own roles supply timbre detail and (for
+    electronic genres only) synth roles. The reference's vocal melodic line is
+    reserved for the user's vocal, so no synth lead is forced into natural genres.
+    """
+    # Pick the guitar timbre the genre prefers (acoustic by default for natural
+    # genres; the genre band may specify electric/distorted).
+    gp_set = set(gp.get("instruments") or [])
+    if "dist_guitar" in gp_set:
+        guitar_role = "dist_guitar"
+    elif "electric_guitar" in gp_set:
+        guitar_role = "electric_guitar"
+    else:
+        guitar_role = "acoustic_guitar"
+
+    # The genre band tells us whether a rhythm section is idiomatic; most
+    # full-band genres (pop/rock/country/folk/etc.) imply drums + bass even when
+    # one stem reads quietly in the mix (e.g. a soft folk bassline). We keep the
+    # foundation unless the reference shows essentially NO trace of it.
+    genre_has_drums = "drums" in gp_set
+    genre_has_low = bool(gp_set & {"bass", "sub_bass", "808"})
+
+    palette: list[str] = []
+    # 1) Rhythm foundation, natural first.
+    if act["drums"] >= 0.05 or (genre_has_drums and act["drums"] >= 0.02):
+        palette.append("drums")
+    if act["bass"] >= 0.05 or (genre_has_low and act["bass"] >= 0.02):
+        # Electronic genres prefer sub/808; natural genres get real bass.
+        if electronic and "sub_bass" in gp_set:
+            palette.append("sub_bass")
+        elif electronic and "808" in gp_set:
+            palette.append("808")
+        else:
+            palette.append("bass")
+    # 2) Natural melodic/harmonic instruments that are present, prominent first.
+    melodic_present = []
+    if act["guitar"] >= 0.2:
+        melodic_present.append((act["guitar"], guitar_role))
+    if act["piano"] >= 0.2:
+        melodic_present.append((act["piano"], "piano"))
+    melodic_present.sort(key=lambda t: -t[0])
+    for _, role in melodic_present:
+        if role not in palette:
+            palette.append(role)
+    # Ensure at least one chordal instrument even if activity was modest. For
+    # electronic genres the synth keys (added later from the genre band) cover
+    # this, so only force a natural chordal instrument for natural genres.
+    has_chordal = set(palette) & {"acoustic_guitar", "electric_guitar",
+                                  "dist_guitar", "piano", "epiano", "organ"}
+    if not has_chordal and not electronic:
+        fallback = guitar_role if act["guitar"] >= act["piano"] else "piano"
+        palette.append(fallback)
+    return palette
+
+
 def _plan_palette(s: int, col: int, profile: dict, genre: str, gp: dict,
                   rng: random.Random) -> list[str]:
-    """Genre-appropriate instrument palette, trimmed by the reference's stem
-    activity and the arrangement density.
+    """Natural-instrument-first instrument palette built from the reference's
+    detected instruments.
 
-    The genre profile supplies the candidate instruments (so country gets
-    acoustic guitar, EDM gets sub bass + plucks, etc.); the reference's stem
-    activity and the density hint decide HOW MANY layers to keep so the result
-    stays clean ("less is more"). Drums/bass are dropped only if the reference
-    truly lacks them.
+    Real instruments (drums, bass, guitar, piano) that are actually present lead
+    the palette. Synth/electronic roles (synth_keys, plucks, pads, sub/808,
+    synth_lead) are only added for electronic genres. For a country/folk
+    reference the palette is e.g. ["drums","bass","acoustic_guitar","piano"] —
+    never generic saw synths. The density/similarity hints decide how many extra
+    genre-detail layers to keep so the result stays clean ("less is more").
     """
     act = _reference_activity(profile)
-    candidates = list(dict.fromkeys(gp["instruments"]))  # genre band, de-duped
+    electronic = genre in _ELECTRONIC_GENRES
 
-    # Drop the rhythm section only when the reference clearly lacks it.
-    if act["drums"] < 0.15:
-        candidates = [c for c in candidates if c != "drums"]
-    if act["bass"] < 0.15:
-        candidates = [c for c in candidates if c not in ("bass", "sub_bass", "808")]
+    palette = _natural_palette(act, gp, electronic)
 
-    # Density → target layer count (kept modest; vocals fill space later).
+    # Genre-detail layers from the genre band, filtered by genre type. For
+    # natural genres we only allow natural roles (extra real instruments such as
+    # strings/organ/epiano/pedal_steel); synth roles are reserved for electronic.
+    extras: list[str] = []
+    for role in dict.fromkeys(gp.get("instruments") or []):
+        if role in palette:
+            continue
+        if role in _LOW_ROLE_SET or role == "drums":
+            continue
+        if not electronic and role in _SYNTH_ROLES:
+            continue  # natural genres never get synth/pad/lead by default
+        extras.append(role)
+
+    # Density → how many extra detail layers to keep on top of the natural core.
     density = float(gp.get("density", 0.55))
     melodic = act["melodic"]
-    # Lower similarity → leaner, more "generic genre" reading; higher → fuller,
-    # closer to the reference's own richness.
     sim_factor = _interp(float(s), [(0, 0.7), (50, 0.85), (100, 1.0)])
     target = density * (0.6 + 0.5 * melodic) * sim_factor
-    n_layers = int(round(_interp(target, [(0.0, 3), (0.5, 4), (0.75, 5), (1.0, 6)])))
-    n_layers = max(3, min(len(candidates), n_layers))
+    total_layers = int(round(_interp(target, [(0.0, 3), (0.5, 4), (0.75, 5), (1.0, 6)])))
+    total_layers = max(3, total_layers)
+    n_extra = max(0, total_layers - len(palette))
+    palette += extras[:n_extra]
 
-    palette = candidates[:n_layers]
-
-    # Guarantee a usable rhythm foundation.
-    if "drums" not in palette and act["drums"] >= 0.15 and "drums" in candidates:
-        palette.insert(0, "drums")
-    has_low = any(p in ("bass", "sub_bass", "808") for p in palette)
-    if not has_low and act["bass"] >= 0.15:
-        low = next((c for c in candidates if c in ("bass", "sub_bass", "808")), "bass")
-        palette.insert(min(1, len(palette)), low)
-
-    # A lead/topline only when the reference is melodically active (or had vocals
-    # — that melodic role is what the user's vocal will eventually occupy, so we
-    # add a quiet placeholder lead at higher similarity only).
-    lead_roles = {"lead", "synth_lead"}
-    if not (set(palette) & lead_roles) and melodic >= 0.5 and s >= 50:
-        lead = next((c for c in candidates if c in lead_roles), None)
-        if lead and len(palette) < 6:
+    # Electronic genres may take a synth lead/topline at higher similarity; the
+    # natural-genre vocal slot is left for the user's vocal (no forced lead).
+    if electronic and s >= 50 and melodic >= 0.5:
+        lead = next((c for c in (gp.get("instruments") or []) if c in
+                     ("synth_lead", "lead")), None)
+        if lead and lead not in palette and len(palette) < 6:
             palette.append(lead)
 
     # De-dupe while preserving order.
     seen: set[str] = set()
     out = [p for p in palette if not (p in seen or seen.add(p))]
-    return out or ["drums", "bass", "piano"]
+    return out or ["drums", "bass", "acoustic_guitar", "piano"]
+
+
+# Low-end engine roles (only one is ever used; chosen in _natural_palette).
+_LOW_ROLE_SET = {"bass", "sub_bass", "808"}
 
 
 # ---- groove --------------------------------------------------------------------

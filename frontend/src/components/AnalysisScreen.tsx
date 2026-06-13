@@ -168,9 +168,12 @@ export default function AnalysisScreen() {
             <Card title="Energy curve" subtitle="Per-bar RMS">
               <EnergySparkline values={profile.energy_curve.per_bar_rms} />
             </Card>
-            <Card title="Instrumentation" subtitle="Per-stem activity (Demucs profile)">
+            <Card title="Instrumentation" subtitle="Per-instrument activity (Demucs profile)">
               <div className="space-y-3">
-                {Object.entries(profile.instrumentation).map(([name, v]) => (
+                {Object.entries(profile.instrumentation)
+                  .filter(([name]) => name !== 'melodic')
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([name, v]) => (
                   <div key={name}>
                     <div className="mb-1 flex justify-between text-xs font-bold text-prussian-700">
                       <span className="capitalize">{name}</span>

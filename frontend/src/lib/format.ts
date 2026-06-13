@@ -23,19 +23,19 @@ export function clamp(v: number, min: number, max: number): number {
 }
 
 /** Structure-label palette shared by analysis strip + arrange timeline.
- *  Kanagawa + cyan/pink: Prussian blues for structure, cyan/pink for the hooks. */
+ *  One clearly distinct hue per section category (chorus stays hot pink — the hook). */
 export const SECTION_COLORS: Record<string, string> = {
-  intro: '#274C73',
-  verse: '#1B3A5B',
-  prechorus: '#00E5FF',
-  chorus: '#FF2D95',
-  bridge: '#FF1FA2',
-  outro: '#0B2C4D',
-  inst: '#06B6CC',
+  intro: '#00E5FF', // bright cyan
+  verse: '#1B3A5B', // prussian navy
+  prechorus: '#F59E0B', // amber
+  chorus: '#FF2D95', // hot pink (the hook)
+  bridge: '#8B5CF6', // violet
+  outro: '#10B981', // emerald
+  inst: '#64748B', // slate
 };
 
 export function sectionColor(label: string): string {
-  return SECTION_COLORS[label.toLowerCase()] ?? '#274C73';
+  return SECTION_COLORS[label.toLowerCase()] ?? '#64748B';
 }
 
 export function roleLabel(role: string): string {
