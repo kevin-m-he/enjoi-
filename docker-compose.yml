@@ -1,0 +1,45 @@
+# enjoi backend — Hetzner CX22 (or any Docker host).
+#
+#   1) Put secrets in a .env file next to this one (see docs/DEPLOY.md):
+#        ENJOI_SAMPLE_CDN=https://enjoi-samples.<subdomain>.workers.dev
+#        ENJOI_SAMPLE_CDN_TOKEN=<the SAMPLE_TOKEN you set on the Worker>
+#   2) Point api.enjoi.dev (DNS-only / grey cloud) at this box's IP.
+#   3) docker compose up -d --build
+#
+# Caddy terminates HTTPS (auto Let's Encrypt) and reverse-proxies to the API, so
+# the app itself only speaks plain HTTP on the internal network.
+services:
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: enjoi-backend
+    restart: unless-stopped
+    environment:
+      ENJOI_HOST: "0.0.0.0"
+      ENJOI_PORT: "8723"
+      ENJOI_DATA_DIR: "/data"
+      ENJOI_SAMPLE_CDN: "${ENJOI_SAMPLE_CDN:-}"
+      ENJOI_SAMPLE_CDN_TOKEN: "${ENJOI_SAMPLE_CDN_TOKEN:-}"
+    volumes:
+      - enjoi-data:/data          # projects, exports, cached samples, soundfont
+    expose:
+      - "8723"                    # internal only — Caddy is the public entrypoint
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+
+volumes:
+  enjoi-data:
+  caddy-data:
+  caddy-config:

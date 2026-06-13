@@ -1,0 +1,8 @@
+# Auto-HTTPS (Let's Encrypt) for the enjoi API. Requires:
+#   - api.enjoi.dev resolves to this box (DNS-only / grey cloud on Cloudflare)
+#   - ports 80 and 443 open to the internet
+# Caddy handles the cert, HTTP->HTTPS redirect, and WebSocket upgrades (/ws).
+api.enjoi.dev {
+	encode zstd gzip
+	reverse_proxy api:8723
+}

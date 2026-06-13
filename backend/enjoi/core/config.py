@@ -7,8 +7,10 @@ from pathlib import Path
 
 APP_NAME = "enjoi"
 VERSION = "0.1.0"
-HOST = "127.0.0.1"
-PORT = 8723
+# Bind address. Defaults to localhost for the desktop app; the server/container
+# build sets ENJOI_HOST=0.0.0.0 (behind Cloudflare/HTTPS) to accept public traffic.
+HOST = os.environ.get("ENJOI_HOST", "127.0.0.1")
+PORT = int(os.environ.get("ENJOI_PORT", "8723"))
 
 # Hard limits / defaults from the build spec
 SAMPLE_RATE = 44100
