@@ -286,7 +286,8 @@ _GENRE_PRODUCTION = {
 # public API
 # ---------------------------------------------------------------------------
 
-def build_generation_plan(profile: dict, similarity: int, rng_seed: int | None = None) -> dict:
+def build_generation_plan(profile: dict, similarity: int, rng_seed: int | None = None,
+                          salt: str | None = None) -> dict:
     """Map slider value 0..100 + reference profile → generation plan dict.
 
     Implements spec table 4.3 at the 0/25/50/75/100 columns and interpolates
@@ -294,6 +295,11 @@ def build_generation_plan(profile: dict, similarity: int, rng_seed: int | None =
     (BPM is fixed to the reference at every similarity value). Reproducible via
     ``rng_seed`` (a deterministic seed is derived from the profile + similarity
     otherwise).
+
+    ``salt`` mixes an extra string into the derived seed (e.g. the project id) so
+    two projects built from the SAME reference still generate DIFFERENT
+    instrumentals, while a given project stays reproducible across re-renders.
+    Ignored when ``rng_seed`` is given explicitly.
     """
     s = _clamp_similarity(similarity)
     col = _column(s)
@@ -301,7 +307,7 @@ def build_generation_plan(profile: dict, similarity: int, rng_seed: int | None =
     ref_tonic, ref_mode = _ref_key(profile)
     genre, gp = _primary_genre(profile)
 
-    seed = _derive_seed(profile, s, rng_seed)
+    seed = _derive_seed(profile, s, rng_seed, salt)
     rng = random.Random(seed)
 
     bpm = _plan_bpm(profile)  # FIXED to reference at every similarity value.
@@ -413,12 +419,15 @@ def _safe_float(value, default: float) -> float:
         return default
 
 
-def _derive_seed(profile: dict, s: int, rng_seed: int | None) -> int:
+def _derive_seed(profile: dict, s: int, rng_seed: int | None,
+                 salt: str | None = None) -> int:
     if rng_seed is not None:
         return int(rng_seed) % (2**31 - 1)
     basis = "|".join(
         str(profile.get(k, "")) for k in ("bpm", "duration_sec", "time_signature")
     ) + f"|{profile.get('key', {})}|{s}"
+    if salt:
+        basis += f"|{salt}"  # per-project freshness (same reference, new song)
     digest = hashlib.sha256(basis.encode("utf-8")).digest()
     return int.from_bytes(digest[:4], "big") % (2**31 - 1)
 

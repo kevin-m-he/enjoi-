@@ -238,10 +238,33 @@ export const useStore = create<AppState>()((set, get) => {
     async deleteProject(pid) {
       try {
         await api.deleteProject(pid);
-        set((s) => ({
-          projects: s.projects.filter((x) => x.id !== pid),
-          ...(s.project?.id === pid ? { project: null, step: 0 } : {}),
-        }));
+        set((s) => {
+          // Drop any jobs belonging to the deleted project. Otherwise a stale
+          // reference job lingers in `activeJobs`/`jobs` and SearchScreen keeps
+          // the results locked ("analyzing your reference…"), so you can't pick a
+          // new reference after deleting one.
+          const jobs = Object.fromEntries(
+            Object.entries(s.jobs).filter(([, j]) => j.project_id !== pid),
+          );
+          const wasActive = s.project?.id === pid;
+          return {
+            projects: s.projects.filter((x) => x.id !== pid),
+            jobs,
+            ...(wasActive
+              ? {
+                  project: null,
+                  step: 0,
+                  activeJobs: {},
+                  profile: null,
+                  grid: null,
+                  vocalAnalysis: null,
+                  arrangement: null,
+                  uniqueness: null,
+                  manifest: null,
+                }
+              : {}),
+          };
+        });
         get().toast('Project deleted.', 'success');
       } catch (e) {
         get().toast(errMsg(e), 'error');
