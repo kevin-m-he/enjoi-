@@ -541,10 +541,11 @@ def _p(progress, frac, msg):
             pass
 
 
-def render_band(plan: dict, progress: Callable | None = None) -> np.ndarray:
-    """Render a real-instrument, mixed, volume-leveled instrumental → (2, n)."""
-    if not available():
-        raise PipelineError("Real-instrument engine unavailable (tinysoundfont missing).")
+def _render_soundfont(plan: dict, progress: Callable | None = None) -> np.ndarray:
+    """Fallback engine: render via the General-MIDI SoundFont (sampled GM
+    instruments) when no local loop library is present."""
+    if not deps.has("tinysoundfont"):
+        raise PipelineError("SoundFont engine unavailable (tinysoundfont missing).")
     _p(progress, 0.02, "Loading real instruments (SoundFont)…")
     sf_path = _soundfont_path()
     if not sf_path:
@@ -583,3 +584,416 @@ def render_band(plan: dict, progress: Callable | None = None) -> np.ndarray:
     out = _master(bus, float(os.environ.get("ENJOI_INSTR_LUFS", "-11.0")), progress)
     _p(progress, 0.99, "Instrumental ready")
     return out
+
+
+# ===========================================================================
+# LOOP ENGINE — uses a local library of REAL commercial loops/one-shots,
+# warped to the target tempo & key and arranged like a producer. This is the
+# primary engine; the SoundFont path above is the fallback when no library
+# exists. The library is the user's own licensed samples and is NOT shipped.
+# ===========================================================================
+
+import re as _re
+
+_LIB_CACHE: dict = {}
+
+
+def library_dir():
+    from pathlib import Path
+
+    env = os.environ.get("ENJOI_SAMPLE_LIB", "").strip()
+    cands = ([Path(env)] if env else []) + [
+        Path(__file__).resolve().parents[2] / "sample_library",
+        config.data_dir() / "sample_library",
+    ]
+    for d in cands:
+        try:
+            if d.is_dir() and any(d.glob("*.wav")):
+                return d
+        except OSError:
+            continue
+    return None
+
+
+def library_available() -> bool:
+    return library_dir() is not None
+
+
+_NOTE_PC = {"C": 0, "C#": 1, "DB": 1, "D": 2, "D#": 3, "EB": 3, "E": 4, "F": 5,
+            "F#": 6, "GB": 6, "G": 7, "G#": 8, "AB": 8, "A": 9, "A#": 10, "BB": 10, "B": 11}
+
+
+def _parse_bpm(name: str):
+    for pat in (r'(\d{2,3})\s*BPM', r'BPM\s*(\d{2,3})', r'(\d{2,3})\s*bpm',
+                r'_(\d{2,3})_', r'-\s*(\d{2,3})\s*-', r'(\d{2,3})bpm'):
+        m = _re.search(pat, name, _re.I)
+        if m and 50 <= int(m.group(1)) <= 200:
+            return int(m.group(1))
+    return None
+
+
+def _parse_key(name: str):
+    for m in _re.finditer(r'(?<![A-Za-z#b])([A-G])([#b]?)\s*(maj|min|m)\b', name):
+        pc = _NOTE_PC.get(m.group(1).upper() + (m.group(2) or "").upper())
+        if pc is not None:
+            return pc, ("major" if m.group(3).lower() == "maj" else "minor")
+    m = _re.search(r'[Kk]ey([A-G])([#b]?)(min|maj|m)?', name)
+    if m:
+        pc = _NOTE_PC.get(m.group(1).upper() + (m.group(2) or "").upper())
+        if pc is not None:
+            return pc, ("major" if (m.group(3) or "").lower() == "maj" else "minor")
+    return None
+
+
+def _categorize(name: str) -> str:
+    n = name.lower()
+    if "full drum" in n or "drum loop" in n or "drum_loop" in n or "full_drum" in n:
+        return "drumloop"
+    if "808" in n:
+        return "b808"
+    if "kick" in n:
+        return "kick"
+    if "snare" in n:
+        return "snare"
+    if "clap" in n:
+        return "clap"
+    if "crash" in n:
+        return "crash"
+    if "open hat" in n or "open_hat" in n or "openhat" in n:
+        return "openhat"
+    if "hihat" in n or "hi-hat" in n or "hat" in n:
+        return "hat"
+    if any(k in n for k in ("guitar", "banjo", "charango", "ukulele", "mandolin")):
+        return "guitar"
+    if any(k in n for k in ("pad", "texture", "swell", "atmos")):
+        return "pad"
+    if "arp" in n:
+        return "arp"
+    if "pluck" in n:
+        return "pluck"
+    if any(k in n for k in ("synth", "lead", "melody", "chords", "poly")):
+        return "synth"
+    return "other"
+
+
+def _index_library() -> list[dict]:
+    d = library_dir()
+    if d is None:
+        return []
+    key = str(d)
+    if _LIB_CACHE.get("dir") == key:
+        return _LIB_CACHE["index"]
+    import soundfile as sf
+
+    idx = []
+    for p in sorted(d.glob("*.wav")):
+        name = p.name
+        try:
+            info = sf.info(str(p))
+            dur = info.frames / info.samplerate
+        except Exception:
+            continue
+        if dur < 0.4 or dur > 130:
+            continue
+        key_parsed = _parse_key(name)
+        idx.append({
+            "path": str(p), "name": name, "cat": _categorize(name),
+            "bpm": _parse_bpm(name),
+            "pc": key_parsed[0] if key_parsed else None,
+            "mode": key_parsed[1] if key_parsed else None,
+            "dur": dur,
+        })
+    _LIB_CACHE.clear()
+    _LIB_CACHE.update({"dir": key, "index": idx})
+    return idx
+
+
+# ---- loop loading + warping ------------------------------------------------
+
+def _load_loop(path: str) -> np.ndarray:
+    import soundfile as sf
+
+    data, sr = sf.read(path, dtype="float32", always_2d=True)  # (n, ch)
+    y = data.T
+    if y.shape[0] == 1:
+        y = np.vstack([y[0], y[0]])
+    elif y.shape[0] > 2:
+        y = y[:2]
+    if sr != SR:
+        y = np.stack([core_audio.resample(np.ascontiguousarray(ch), sr, SR) for ch in y])
+    return np.ascontiguousarray(y, dtype=np.float32)
+
+
+def _fold_bpm(native: float, target: float) -> float:
+    n = float(native)
+    if n <= 0:
+        return target
+    while target / n > 1.42:
+        n *= 2.0
+    while target / n < 0.71:
+        n /= 2.0
+    return n
+
+
+def _warp(y: np.ndarray, native_bpm, target_bpm: float, semitones: float,
+          is_drum: bool) -> np.ndarray:
+    import librosa
+
+    if native_bpm:
+        rate = target_bpm / _fold_bpm(native_bpm, target_bpm)
+        if abs(rate - 1.0) > 0.01:
+            y = np.stack([librosa.effects.time_stretch(np.ascontiguousarray(ch), rate=float(rate))
+                          for ch in y])
+    if not is_drum and abs(semitones) >= 0.5:
+        y = np.stack([librosa.effects.pitch_shift(np.ascontiguousarray(ch), sr=SR,
+                                                  n_steps=float(semitones)) for ch in y])
+    return np.ascontiguousarray(y, dtype=np.float32)
+
+
+def _tile(y: np.ndarray, n: int) -> np.ndarray:
+    """Loop (2, m) up to length n with a short equal-power crossfade at the seam."""
+    m = y.shape[1]
+    if m == 0:
+        return np.zeros((2, n), dtype=np.float32)
+    if m >= n:
+        return y[:, :n]
+    xf = int(min(0.03 * SR, m * 0.12))
+    out = y.copy()
+    while out.shape[1] < n + m:
+        a, b = out, y
+        if xf >= 2:
+            t = np.linspace(0, np.pi / 2, xf, dtype=np.float32)
+            fade_o, fade_i = np.cos(t), np.sin(t)
+            head = a[:, -xf:] * fade_o + b[:, :xf] * fade_i
+            out = np.concatenate([a[:, :-xf], head, b[:, xf:]], axis=1)
+        else:
+            out = np.concatenate([a, b], axis=1)
+    return out[:, :n]
+
+
+# ---- selection -------------------------------------------------------------
+
+def _semitones_to(target_pc, native_pc) -> float:
+    if target_pc is None or native_pc is None:
+        return 0.0
+    return float(((target_pc - native_pc + 6) % 12) - 6)
+
+
+def _pick(index, cats, target_pc, target_bpm, rng, prefer=(), avoid=(), mode=None):
+    pool = [s for s in index if s["cat"] in cats]
+    if not pool:
+        return None
+    def score(s):
+        sc = 0.0
+        nm = s["name"].lower()
+        for kw in prefer:
+            if kw in nm:
+                sc += 3.0
+        for kw in avoid:
+            if kw in nm:
+                sc -= 2.5
+        if s["bpm"]:
+            ratio = target_bpm / _fold_bpm(s["bpm"], target_bpm)
+            sc -= abs(math.log2(max(ratio, 1e-3))) * 4.0  # penalize stretch
+        if s["pc"] is not None and target_pc is not None:
+            sc -= abs(_semitones_to(target_pc, s["pc"])) * 0.25
+        if mode and s["mode"] == mode:
+            sc += 0.8
+        return sc
+    pool.sort(key=score, reverse=True)
+    top = pool[: max(1, min(3, len(pool)))]
+    return rng.choice(top)
+
+
+# ---- genre recipes (which loops + how loud the drums) ----------------------
+
+_LOOP_GENRE = {
+    "country": dict(gtr=("acoustic",), drum=0.5, b808=0.0, synth=0.15, pad=0.4),
+    "folk": dict(gtr=("acoustic", "classical"), drum=0.45, b808=0.0, synth=0.12, pad=0.45),
+    "acoustic": dict(gtr=("acoustic", "classical", "nylon"), drum=0.4, b808=0.0, synth=0.1, pad=0.4),
+    "singer-songwriter": dict(gtr=("acoustic", "classical"), drum=0.45, b808=0.0, synth=0.1, pad=0.45),
+    "lofi": dict(gtr=("lofi", "classical", "sadboi"), drum=0.6, b808=0.5, synth=0.4, pad=0.5),
+    "latin": dict(gtr=("spanish", "latin", "classical"), drum=0.8, b808=0.7, synth=0.3, pad=0.3),
+    "pop": dict(gtr=("acoustic", "classic"), drum=0.85, b808=0.7, synth=0.6, pad=0.4),
+    "r&b": dict(gtr=("classic", "spanish"), drum=0.7, b808=0.8, synth=0.6, pad=0.5),
+    "soul": dict(gtr=("classic",), drum=0.65, b808=0.7, synth=0.5, pad=0.5),
+    "hip hop": dict(gtr=("spanish", "trap", "latin"), drum=1.0, b808=1.0, synth=0.6, pad=0.3),
+    "rap": dict(gtr=("spanish", "trap"), drum=1.0, b808=1.0, synth=0.6, pad=0.3),
+    "trap": dict(gtr=("spanish", "trap", "latin"), drum=1.0, b808=1.0, synth=0.7, pad=0.3),
+    "rock": dict(gtr=("electric",), drum=0.9, b808=0.3, synth=0.3, pad=0.3),
+    "edm": dict(gtr=(), drum=0.95, b808=0.9, synth=0.9, pad=0.6),
+    "dance": dict(gtr=(), drum=0.95, b808=0.9, synth=0.9, pad=0.6),
+    "house": dict(gtr=(), drum=0.95, b808=0.85, synth=0.85, pad=0.6),
+}
+_DEFAULT_LOOP_GENRE = dict(gtr=("acoustic", "classic", "spanish"), drum=0.7, b808=0.6,
+                           synth=0.5, pad=0.4)
+
+# Per-section layer gains (arrangement dynamics).
+_LAYER = {
+    "harmony": {"intro": 0.85, "verse": 1.0, "prechorus": 1.0, "chorus": 1.0,
+                "bridge": 0.9, "outro": 0.8, "inst": 1.0},
+    "drums": {"intro": 0.0, "verse": 0.8, "prechorus": 0.92, "chorus": 1.0,
+              "bridge": 0.55, "outro": 0.3, "inst": 0.95},
+    "bass": {"intro": 0.0, "verse": 0.85, "prechorus": 0.95, "chorus": 1.0,
+             "bridge": 0.75, "outro": 0.35, "inst": 0.95},
+    "synth": {"intro": 0.45, "verse": 0.3, "prechorus": 0.6, "chorus": 0.9,
+              "bridge": 0.6, "outro": 0.3, "inst": 0.8},
+    "pad": {"intro": 0.7, "verse": 0.5, "prechorus": 0.6, "chorus": 0.85,
+            "bridge": 0.85, "outro": 0.6, "inst": 0.6},
+}
+_LOOP_MIX = {  # (gain_db, highpass_hz, pan), plus reference rms for consistent balance
+    "drums": (-0.5, 28.0, 0.0, 0.20),
+    "bass": (-1.5, 28.0, 0.0, 0.15),
+    "harmony": (-4.0, 90.0, -0.15, 0.13),
+    "synth": (-8.0, 200.0, 0.2, 0.07),
+    "pad": (-11.0, 160.0, 0.3, 0.06),
+}
+
+
+def _section_envelope(role: str, ctx: _Ctx, n_total: int) -> np.ndarray:
+    env = np.zeros(n_total, dtype=np.float32)
+    table = _LAYER[role]
+    cursor = 0
+    ramp = int(0.06 * SR)
+    for sec in ctx.structure:
+        seclen = int(sec["bars"] * ctx.bpb * ctx.spb * SR)
+        g = table.get(sec["label"], 0.7)
+        end = min(n_total, cursor + seclen)
+        if end > cursor:
+            env[cursor:end] = g
+        cursor = end
+        if cursor >= n_total:
+            break
+    # smooth boundaries to avoid clicks
+    if ramp > 2 and n_total > 4 * ramp:
+        kernel = np.ones(ramp, dtype=np.float32) / ramp
+        env = np.convolve(env, kernel, mode="same").astype(np.float32)
+    return env
+
+
+def _drum_bus(index, ctx, n_total, intensity, rng) -> np.ndarray:
+    """Layer kick+snare+hat+clap (+full loop if present) into one drum stem,
+    hats kept quiet. Time-stretched only (never pitch-shifted)."""
+    target = ctx.bpm
+    elems = [
+        ("kick", ("kick",), 1.0), ("snare", ("snare",), 0.9),
+        ("hat", ("hat",), 0.42), ("openhat", ("openhat",), 0.36),
+        ("clap", ("clap",), 0.7), ("crash", ("crash",), 0.5),
+    ]
+    bus = np.zeros((2, n_total), dtype=np.float32)
+    got = False
+    # If a full drum loop fits well, prefer it as the spine.
+    full = _pick(index, ("drumloop",), None, target, rng)
+    if full is not None:
+        y = _warp(_load_loop(full["path"]), full["bpm"], target, 0.0, True)
+        bus += _tile(y, n_total)
+        got = True
+    for role, cats, lvl in elems:
+        s = _pick(index, cats, None, target, rng)
+        if s is None:
+            continue
+        y = _warp(_load_loop(s["path"]), s["bpm"], target, 0.0, True) * lvl
+        bus[:, : n_total] += _tile(y, n_total)
+        got = True
+    return bus * intensity if got else bus
+
+
+def _render_loops(plan: dict, progress) -> np.ndarray:
+    index = _index_library()
+    if not index:
+        raise PipelineError("No sample library found.")
+    ctx = _ctx(plan)
+    rng = ctx.rng
+    recipe = _LOOP_GENRE.get(ctx.genre, _DEFAULT_LOOP_GENRE)
+    tonic_pc = ctx.scale[0] % 12
+    n_total = int(sum(s["bars"] for s in ctx.structure) * ctx.bpb * ctx.spb * SR)
+    if n_total < SR:
+        n_total = SR
+
+    stems: dict = {}
+
+    _p(progress, 0.12, "Laying down the guitars…")
+    gtr = _pick(index, ("guitar",), tonic_pc, ctx.bpm, rng,
+                prefer=recipe["gtr"], mode=("minor" if ctx.minorish else "major"))
+    if gtr is None:
+        gtr = _pick(index, ("guitar", "synth", "pluck"), tonic_pc, ctx.bpm, rng)
+    if gtr is not None:
+        y = _warp(_load_loop(gtr["path"]), gtr["bpm"], ctx.bpm,
+                  _semitones_to(tonic_pc, gtr["pc"]), False)
+        stems["harmony"] = _tile(y, n_total)
+
+    _p(progress, 0.35, "Programming the drums…")
+    drums = _drum_bus(index, ctx, n_total, max(0.05, recipe["drum"]), rng)
+    if float(np.abs(drums).max()) > 1e-4:
+        stems["drums"] = drums
+
+    if recipe["b808"] > 0.05:
+        _p(progress, 0.55, "Dropping the 808/bass…")
+        b = _pick(index, ("b808",), tonic_pc, ctx.bpm, rng)
+        if b is not None:
+            y = _warp(_load_loop(b["path"]), b["bpm"], ctx.bpm,
+                      _semitones_to(tonic_pc, b["pc"]), False) * recipe["b808"]
+            stems["bass"] = _tile(y, n_total)
+
+    if recipe["synth"] > 0.05:
+        _p(progress, 0.68, "Adding synths…")
+        s = _pick(index, ("synth", "arp", "pluck", "pad"), tonic_pc, ctx.bpm, rng,
+                  mode=("minor" if ctx.minorish else "major"))
+        if s is not None:
+            y = _warp(_load_loop(s["path"]), s["bpm"], ctx.bpm,
+                      _semitones_to(tonic_pc, s["pc"]), False)
+            stems["synth"] = _tile(y, n_total)
+
+    if recipe["pad"] > 0.05:
+        _p(progress, 0.76, "Warming it with pads…")
+        s = _pick(index, ("pad", "synth"), tonic_pc, ctx.bpm, rng, prefer=("pad", "texture"))
+        if s is not None:
+            y = _warp(_load_loop(s["path"]), s["bpm"], ctx.bpm,
+                      _semitones_to(tonic_pc, s["pc"]), False)
+            stems["pad"] = _tile(y, n_total)
+
+    if not stems:
+        raise PipelineError("Could not select any loops from the library.")
+
+    _p(progress, 0.84, "Arranging sections…")
+    bus = np.zeros((2, n_total), dtype=np.float32)
+    for name, stem in stems.items():
+        gain_db, hp, pan, ref = _LOOP_MIX.get(name, (-8.0, 120.0, 0.0, 0.08))
+        s = stem[:, :n_total]
+        if s.shape[1] < n_total:
+            s = np.pad(s, ((0, 0), (0, n_total - s.shape[1])))
+        if hp > 25:
+            s = _hpf(s, hp)
+        cur = _rms(s)
+        if cur > 1e-6:
+            s = s * (ref / cur)
+        s = s * core_audio.db_to_lin(gain_db)
+        env = _section_envelope("bass" if name == "bass" else name, ctx, n_total) \
+            if name in _LAYER else np.ones(n_total, dtype=np.float32)
+        s = s * env
+        if abs(pan) > 0.01:
+            s = _pan(s, pan)
+        bus += s
+
+    _p(progress, 0.92, "Mixing & leveling…")
+    out = _master(bus, float(os.environ.get("ENJOI_INSTR_LUFS", "-11.0")), progress)
+    _p(progress, 0.99, "Instrumental ready")
+    return out
+
+
+def available() -> bool:  # noqa: F811  (final definition — loop OR soundfont)
+    return library_available() or deps.has("tinysoundfont")
+
+
+def render_band(plan: dict, progress: Callable | None = None) -> np.ndarray:
+    """Render a real-sample, mixed, leveled instrumental → (2, n).
+
+    Primary: the local loop library (real commercial loops warped to the target
+    tempo & key and arranged). Fallback: the General-MIDI SoundFont.
+    """
+    if library_available() and os.environ.get("ENJOI_ENGINE", "").lower() != "soundfont":
+        try:
+            return _render_loops(plan, progress)
+        except Exception as exc:
+            _p(progress, 0.02, f"Loop engine fell back ({type(exc).__name__})")
+    return _render_soundfont(plan, progress)

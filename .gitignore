@@ -10,4 +10,5 @@ frontend/release/
 .DS_Store
 Thumbs.db
 backend/.wheels/
+backend/sample_library/
 .claude/launch.json
