@@ -1,0 +1,60 @@
+{
+  "name": "enjoi-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "description": "enjoi 享受 — reference-to-release song maker (desktop UI)",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "concurrently -k \"npm:dev:web\" \"npm:dev:electron\"",
+    "dev:web": "vite",
+    "dev:electron": "wait-on http://localhost:5173 && electron .",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "dist": "npm run build && electron-builder"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^8.2.2",
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "~5.5.4",
+    "vite": "^5.4.11",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.enjoi.app",
+    "productName": "enjoi",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "electron/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../scripts",
+        "to": "scripts",
+        "filter": [
+          "run_backend.ps1"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    }
+  }
+}

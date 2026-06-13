@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+node_modules/
+frontend/dist/
+frontend/dist-electron/
+frontend/release/
+*.log
+.DS_Store
+Thumbs.db
