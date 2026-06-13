@@ -1040,10 +1040,16 @@ def _tags(meta: dict, bpm: float, key: dict, energy_mean: float,
             moods.append("intimate")
         if "mellow" not in moods and "chill" not in moods:
             moods.append("mellow")
-    if energy_mean >= 0.6 and bpm >= 118 and "energetic" not in moods:
-        moods.append("energetic")
-    if mode == "major" and energy_mean >= 0.55 and bpm >= 100 and "bright" not in moods:
-        moods.append("bright")
+    # A song's emotional character shouldn't read as both sad and upbeat. If a
+    # melancholic/reflective/intimate mood already leads (usually from the
+    # metadata, the strongest signal — e.g. a heartbreak ballad in a major key),
+    # don't bolt on a contradictory "bright"/"energetic" tag from the audio rules.
+    somber = bool({"melancholic", "reflective", "intimate"} & set(moods))
+    if not somber:
+        if energy_mean >= 0.6 and bpm >= 118 and "energetic" not in moods:
+            moods.append("energetic")
+        if mode == "major" and energy_mean >= 0.55 and bpm >= 100 and "bright" not in moods:
+            moods.append("bright")
     if mode == "major" and not moods:
         moods.append("warm")
     if not moods:

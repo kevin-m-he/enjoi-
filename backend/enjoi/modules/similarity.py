@@ -161,7 +161,7 @@ _PATTERN_PHRASE = {
     "sparse": "sparse minimal rhythm",
 }
 
-# Human-readable instrument names for the MusicGen text prompt.
+# Human-readable instrument names for the MusicGen text prompt (generic default).
 _PROMPT_INSTRUMENT = {
     "drums": "drums", "bass": "bass", "sub_bass": "deep sub bass", "808": "808 bass",
     "acoustic_guitar": "acoustic guitar", "electric_guitar": "electric guitar",
@@ -170,6 +170,115 @@ _PROMPT_INSTRUMENT = {
     "synth_keys": "synth keys", "pad": "warm pad", "strings": "strings",
     "pluck": "synth pluck", "lead": "lead melody", "synth_lead": "synth lead",
     "brass": "brass", "bell": "bell", "arp": "arpeggio",
+}
+
+# Producer-grade, genre-specific instrument phrasing. For a given genre we pick
+# the most evocative real-instrument description so MusicGen renders a believable
+# band in that style instead of generic timbres. Falls back to _PROMPT_INSTRUMENT.
+_GENRE_INSTRUMENT_WORDS: dict[str, dict[str, str]] = {
+    "folk": {
+        "drums": "soft brushed drums", "bass": "warm upright bass",
+        "acoustic_guitar": "fingerpicked steel-string acoustic guitar",
+        "electric_guitar": "warm clean electric guitar", "piano": "soft felt piano",
+        "strings": "gentle string section", "pedal_steel": "weeping pedal steel",
+        "organ": "warm hammond organ",
+    },
+    "country": {
+        "drums": "gentle brushed drum kit", "bass": "warm electric bass",
+        "acoustic_guitar": "bright strummed acoustic guitar",
+        "electric_guitar": "twangy telecaster electric guitar",
+        "piano": "honky-tonk piano", "pedal_steel": "crying pedal steel guitar",
+        "strings": "fiddle", "organ": "hammond organ",
+    },
+    "acoustic": {
+        "drums": "soft cajon and brushed drums", "bass": "warm upright bass",
+        "acoustic_guitar": "fingerpicked acoustic guitar",
+        "piano": "intimate acoustic piano", "strings": "soft strings",
+    },
+    "rock": {
+        "drums": "punchy live drum kit", "bass": "driving electric bass",
+        "electric_guitar": "crunchy overdriven electric guitars",
+        "dist_guitar": "distorted electric guitars", "piano": "rock piano",
+        "organ": "hammond organ",
+    },
+    "metal": {
+        "drums": "aggressive double-kick drums", "bass": "heavy distorted bass",
+        "dist_guitar": "heavy palm-muted distorted guitars",
+        "electric_guitar": "high-gain electric guitars",
+    },
+    "blues": {
+        "drums": "shuffling drum kit", "bass": "walking electric bass",
+        "electric_guitar": "soulful overdriven blues guitar",
+        "organ": "hammond organ", "piano": "bluesy piano",
+    },
+    "jazz": {
+        "drums": "brushed jazz drums", "bass": "walking upright bass",
+        "piano": "jazz piano comping", "brass": "muted trumpet and saxophone",
+        "electric_guitar": "warm hollow-body jazz guitar",
+    },
+    "r&b": {
+        "drums": "tight laid-back drums", "bass": "round electric bass",
+        "epiano": "lush rhodes electric piano", "piano": "soulful piano",
+        "pad": "warm analog pad", "synth_keys": "smooth synth keys",
+    },
+    "gospel": {
+        "drums": "energetic live drums", "bass": "round electric bass",
+        "organ": "soaring hammond organ", "piano": "gospel piano",
+        "strings": "full choir-backed strings",
+    },
+    "latin": {
+        "drums": "live latin percussion and drums", "bass": "syncopated electric bass",
+        "piano": "montuno piano", "brass": "bright brass section",
+        "acoustic_guitar": "nylon-string guitar",
+    },
+    "lofi": {
+        "drums": "dusty lo-fi drums", "bass": "mellow electric bass",
+        "epiano": "warm vintage rhodes", "pad": "hazy tape pad",
+        "piano": "soft jazzy piano",
+    },
+    "hip hop": {
+        "drums": "boom-bap drums", "bass": "deep electric bass",
+        "epiano": "soulful rhodes", "808": "deep 808 bass", "bell": "vibraphone bells",
+    },
+    "trap": {
+        "drums": "crisp trap drums with rolling hi-hats", "808": "booming 808 bass",
+        "synth_keys": "dark synth keys", "bell": "glassy bells", "pad": "atmospheric pad",
+    },
+    "edm": {
+        "drums": "punchy four-on-the-floor drums", "sub_bass": "deep sub bass",
+        "synth_keys": "bright supersaw synths", "pluck": "rhythmic synth plucks",
+        "pad": "wide synth pad", "synth_lead": "soaring synth lead",
+    },
+    "pop": {
+        "drums": "polished pop drums", "bass": "tight electric bass",
+        "piano": "bright pop piano", "synth_keys": "modern synth keys",
+        "pad": "lush pad", "acoustic_guitar": "bright acoustic guitar",
+    },
+}
+
+# Genre-level production/character descriptors (the "studio vibe").
+_GENRE_PRODUCTION = {
+    "folk": "organic live-band studio recording, warm analog, intimate, high fidelity",
+    "country": "warm Nashville studio recording, live band, analog warmth, high fidelity",
+    "acoustic": "intimate unplugged studio recording, natural room sound, high fidelity",
+    "singer-songwriter": "intimate organic studio recording, warm analog, high fidelity",
+    "rock": "punchy live rock band, big drum room, analog warmth, high fidelity",
+    "metal": "tight modern metal production, powerful and aggressive, high fidelity",
+    "blues": "warm live blues club recording, analog, high fidelity",
+    "jazz": "warm acoustic jazz club recording, natural dynamics, high fidelity",
+    "r&b": "smooth modern R&B production, warm and lush, high fidelity",
+    "soul": "warm vintage soul recording, live band, analog, high fidelity",
+    "gospel": "uplifting live gospel recording, full and warm, high fidelity",
+    "latin": "lively latin production, crisp percussion, high fidelity",
+    "lofi": "warm lo-fi production, vinyl crackle, mellow, cozy",
+    "hip hop": "warm boom-bap production, punchy and dusty, high fidelity",
+    "trap": "modern trap production, clean and hard-hitting, high fidelity",
+    "edm": "polished electronic production, wide and energetic, club-ready, high fidelity",
+    "dance": "polished dance production, energetic, club-ready, high fidelity",
+    "house": "deep house production, groovy and warm, club-ready, high fidelity",
+    "pop": "polished modern pop production, radio-ready, clean and bright, high fidelity",
+    "k-pop": "glossy K-pop production, energetic and modern, high fidelity",
+    "classical": "lush orchestral recording, concert-hall ambience, high fidelity",
 }
 
 
@@ -739,37 +848,68 @@ def _plan_groove(col: int, profile: dict, genre: str, gp: dict,
 
 # ---- prompt --------------------------------------------------------------------
 
+def _genre_name(genre: str) -> str:
+    """How the genre should read in the prompt (slashes help MusicGen)."""
+    return {
+        "country": "folk/country", "folk": "folk", "acoustic": "acoustic",
+        "r&b": "R&B/soul", "hip hop": "hip hop", "edm": "electronic/EDM",
+        "lofi": "lo-fi hip hop", "k-pop": "K-pop",
+    }.get(genre, genre)
+
+
+def _instrument_words(genre: str, palette: list[str]) -> list[str]:
+    """Producer-grade, genre-specific instrument descriptions for the palette."""
+    genre_words = _GENRE_INSTRUMENT_WORDS.get(genre, {})
+    out: list[str] = []
+    seen: set[str] = set()
+    for role in palette:
+        word = genre_words.get(role) or _PROMPT_INSTRUMENT.get(role, role.replace("_", " "))
+        if word not in seen:
+            out.append(word)
+            seen.add(word)
+    return out
+
+
 def _build_prompt(profile: dict, genre: str, bpm: float, tonic: str, mode: str,
                   palette: list[str], groove: dict, energy_targets: list[float]) -> str:
-    """MusicGen text prompt from style descriptors only (never the source title).
+    """Rich, producer-grade MusicGen text prompt from style descriptors only
+    (never the source title or melody).
 
-    Includes the resolved genre and the genre-appropriate instrument palette so
-    that, when MusicGen is available, it is steered toward the same genre and
-    instrumentation the procedural engine uses.
+    Names REAL, genre-appropriate instruments (e.g. for folk/country:
+    fingerpicked steel-string acoustic guitar, warm upright bass, gentle brushed
+    drums, soft piano, subtle pedal steel/fiddle) plus the mood, tempo, key,
+    groove and a genre-specific production character. Acoustic/organic genres
+    never receive synth language. This steers MusicGen toward a believable live
+    band in the reference's genre rather than synthetic bleeps.
     """
     moods = [str(t) for t in (profile.get("mood_tags") or []) if t] or ["warm"]
+    mood_word = moods[0]
     mean_energy = sum(energy_targets) / len(energy_targets) if energy_targets else 0.5
     if mean_energy >= 0.65:
-        energy_word = "high-energy, driving"
+        energy_word = "energetic and driving"
     elif mean_energy <= 0.4:
-        energy_word = "laid-back, mellow"
+        energy_word = "laid-back and mellow"
     else:
         energy_word = "mid-energy"
+
     swing = float(groove.get("swing", 0.0))
     groove_phrase = _PATTERN_PHRASE.get(groove.get("pattern_class", ""), "steady groove")
     if swing >= 0.4:
         groove_phrase += " with heavy swing"
     elif swing >= 0.15:
         groove_phrase += " with a light swing"
-    instr_words = [_PROMPT_INSTRUMENT.get(p, p.replace("_", " ")) for p in palette]
+
+    instr_words = _instrument_words(genre, palette)
+    production = _GENRE_PRODUCTION.get(genre, "polished modern production, high fidelity")
+
     parts = [
-        f"{moods[0]} {genre} instrumental",
-        f"{int(round(bpm))} bpm",
+        f"{mood_word} {_genre_name(genre)} instrumental",
+        ("featuring " + ", ".join(instr_words)) if instr_words else "minimal arrangement",
+        f"{int(round(bpm))} BPM",
         f"{tonic} {mode}",
         groove_phrase,
-        ("featuring " + ", ".join(instr_words)) if instr_words else "minimal arrangement",
         energy_word,
-        "no vocals",
-        "polished modern production",
+        production,
+        "instrumental only, no vocals, no singing",
     ]
     return ", ".join(parts)
