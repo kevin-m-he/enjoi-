@@ -116,7 +116,22 @@ export default function App() {
         {step === 4 && <ArrangeScreen />}
         {step === 5 && <MixExportScreen />}
       </main>
+      <VerseFooter />
       <Toasts />
     </div>
+  );
+}
+
+/** Tiny dark-blue scripture in the bottom-right corner. */
+function VerseFooter() {
+  return (
+    <p
+      aria-hidden
+      className="pointer-events-none fixed bottom-1.5 right-3 z-20 max-w-[280px] text-right text-[8px] leading-snug text-prussian-700/80"
+    >
+      Isaiah 43:2, When you pass through the waters, I will be with you; and when you pass through
+      the rivers, they will not sweep over you. When you walk through the fire, you will not be
+      burned; the flames will not set you ablaze.
+    </p>
   );
 }

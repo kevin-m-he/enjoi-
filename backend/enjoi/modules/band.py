@@ -615,8 +615,31 @@ def library_dir():
     return None
 
 
+def _cdn_base() -> str:
+    """Base URL of the hosted sample library (e.g. a Cloudflare Pages/R2 bucket).
+    Empty until the cloud library is launched — local files are used until then."""
+    return os.environ.get("ENJOI_SAMPLE_CDN", "").strip().rstrip("/")
+
+
+def _sample_cache_dir():
+    from pathlib import Path
+
+    d = config.cache_dir() / "samples"
+    d.mkdir(parents=True, exist_ok=True)
+    return Path(d)
+
+
+def _manifest_path():
+    from pathlib import Path
+
+    return Path(__file__).resolve().parents[2] / "sample_manifest.json"
+
+
 def library_available() -> bool:
-    return library_dir() is not None
+    if library_dir() is not None:
+        return True
+    # cloud library: a committed manifest (metadata only) + a configured CDN.
+    return bool(_cdn_base()) and _manifest_path().is_file()
 
 
 _NOTE_PC = {"C": 0, "C#": 1, "DB": 1, "D": 2, "D#": 3, "EB": 3, "E": 4, "F": 5,
@@ -657,12 +680,18 @@ def _categorize(name: str) -> str:
         return "snare"
     if "clap" in n:
         return "clap"
-    if "crash" in n:
+    if "crash" in n or "cymbal" in n:
         return "crash"
     if "open hat" in n or "open_hat" in n or "openhat" in n:
         return "openhat"
     if "hihat" in n or "hi-hat" in n or "hat" in n:
         return "hat"
+    if _re.search(r'\btom', n):
+        return "tom"
+    if "cowbell" in n or "shaker" in n or _re.search(r'\bperc', n):
+        return "perc"
+    if any(k in n for k in ("piano", "wurl", "rhodes", "keys")):
+        return "piano"
     if any(k in n for k in ("guitar", "banjo", "charango", "ukulele", "mandolin")):
         return "guitar"
     if any(k in n for k in ("pad", "texture", "swell", "atmos")):
@@ -671,41 +700,105 @@ def _categorize(name: str) -> str:
         return "arp"
     if "pluck" in n:
         return "pluck"
+    if any(k in n for k in ("trumpet", "sax", "brass", "horn", "flute")):
+        return "brass"
     if any(k in n for k in ("synth", "lead", "melody", "chords", "poly")):
         return "synth"
     return "other"
 
 
+def _entry(name: str, dur: float, path: str | None) -> dict:
+    kp = _parse_key(name)
+    bpm = _parse_bpm(name)
+    cat = _categorize(name)
+    return {
+        "name": name, "path": path, "cat": cat, "bpm": bpm,
+        "pc": kp[0] if kp else None, "mode": kp[1] if kp else None,
+        "dur": round(float(dur), 3),
+        # one-shots (a single hit) get sequenced into a beat, not looped.
+        "oneshot": dur < 2.5 and bpm is None and cat in
+        ("kick", "snare", "hat", "openhat", "clap", "crash", "tom", "perc"),
+    }
+
+
 def _index_library() -> list[dict]:
     d = library_dir()
-    if d is None:
-        return []
-    key = str(d)
+    key = str(d) if d else f"cdn:{_cdn_base()}"
     if _LIB_CACHE.get("dir") == key:
         return _LIB_CACHE["index"]
-    import soundfile as sf
+    idx: list[dict] = []
+    if d is not None:
+        import soundfile as sf
 
-    idx = []
-    for p in sorted(d.glob("*.wav")):
-        name = p.name
+        for p in sorted(d.glob("*.wav")):
+            try:
+                info = sf.info(str(p))
+                dur = info.frames / info.samplerate
+            except Exception:
+                continue
+            if dur < 0.1 or dur > 130:
+                continue
+            idx.append(_entry(p.name, dur, str(p)))
+    elif _cdn_base() and _manifest_path().is_file():
+        import json
+
         try:
-            info = sf.info(str(p))
-            dur = info.frames / info.samplerate
+            data = json.loads(_manifest_path().read_text(encoding="utf-8"))
+            for it in data.get("samples", []):
+                idx.append(_entry(it["name"], it.get("dur", 4.0), None))
         except Exception:
-            continue
-        if dur < 0.4 or dur > 130:
-            continue
-        key_parsed = _parse_key(name)
-        idx.append({
-            "path": str(p), "name": name, "cat": _categorize(name),
-            "bpm": _parse_bpm(name),
-            "pc": key_parsed[0] if key_parsed else None,
-            "mode": key_parsed[1] if key_parsed else None,
-            "dur": dur,
-        })
+            idx = []
     _LIB_CACHE.clear()
     _LIB_CACHE.update({"dir": key, "index": idx})
     return idx
+
+
+def _resolve(entry: dict) -> str:
+    """Return a local file path for a library entry, downloading from the CDN and
+    caching on first use when the sample isn't already on disk."""
+    p = entry.get("path")
+    if p and os.path.isfile(p):
+        return p
+    cached = _sample_cache_dir() / entry["name"]
+    if cached.is_file() and cached.stat().st_size > 1000:
+        return str(cached)
+    base = _cdn_base()
+    if not base:
+        raise PipelineError(f"Sample unavailable and no ENJOI_SAMPLE_CDN set: {entry['name']}")
+    import urllib.parse
+    import urllib.request
+
+    url = base + "/" + urllib.parse.quote(entry["name"])
+    tmp = cached.with_suffix(cached.suffix + ".part")
+    urllib.request.urlretrieve(url, str(tmp))
+    tmp.replace(cached)
+    return str(cached)
+
+
+def write_manifest() -> int:
+    """Scan the local library → sample_manifest.json (metadata ONLY, no audio) so
+    the repo can ship the index without the licensed samples; the app fetches the
+    audio from ENJOI_SAMPLE_CDN at runtime. Returns the sample count."""
+    import json
+
+    d = library_dir()
+    if d is None:
+        raise PipelineError("No local sample_library to build a manifest from.")
+    import soundfile as sf
+
+    samples = []
+    for p in sorted(d.glob("*.wav")):
+        try:
+            info = sf.info(str(p))
+            dur = round(info.frames / info.samplerate, 3)
+        except Exception:
+            continue
+        e = _entry(p.name, dur, None)
+        samples.append({"name": e["name"], "cat": e["cat"], "bpm": e["bpm"],
+                        "pc": e["pc"], "mode": e["mode"], "dur": e["dur"]})
+    payload = {"version": 1, "count": len(samples), "samples": samples}
+    _manifest_path().write_text(json.dumps(payload, indent=1, ensure_ascii=False), encoding="utf-8")
+    return len(samples)
 
 
 # ---- loop loading + warping ------------------------------------------------
@@ -722,6 +815,11 @@ def _load_loop(path: str) -> np.ndarray:
     if sr != SR:
         y = np.stack([core_audio.resample(np.ascontiguousarray(ch), sr, SR) for ch in y])
     return np.ascontiguousarray(y, dtype=np.float32)
+
+
+def _load(entry: dict) -> np.ndarray:
+    """Resolve a library entry to a local file (fetch from CDN if needed) and load."""
+    return _load_loop(_resolve(entry))
 
 
 def _fold_bpm(native: float, target: float) -> float:
@@ -807,46 +905,49 @@ def _pick(index, cats, target_pc, target_bpm, rng, prefer=(), avoid=(), mode=Non
 
 # ---- genre recipes (which loops + how loud the drums) ----------------------
 
+# Per genre: harm = harmonic-bed instrument order (one is chosen), gtr = guitar
+# keyword prefs, feel = drum pattern, drum = drum-bus loudness, b808 = bass
+# loudness, color = the SINGLE extra texture layer ("pad" or "synth"). "Less is
+# more" — only ever harmony + drums + bass + ONE color, never a wall of loops.
 _LOOP_GENRE = {
-    "country": dict(gtr=("acoustic",), drum=0.5, b808=0.0, synth=0.15, pad=0.4),
-    "folk": dict(gtr=("acoustic", "classical"), drum=0.45, b808=0.0, synth=0.12, pad=0.45),
-    "acoustic": dict(gtr=("acoustic", "classical", "nylon"), drum=0.4, b808=0.0, synth=0.1, pad=0.4),
-    "singer-songwriter": dict(gtr=("acoustic", "classical"), drum=0.45, b808=0.0, synth=0.1, pad=0.45),
-    "lofi": dict(gtr=("lofi", "classical", "sadboi"), drum=0.6, b808=0.5, synth=0.4, pad=0.5),
-    "latin": dict(gtr=("spanish", "latin", "classical"), drum=0.8, b808=0.7, synth=0.3, pad=0.3),
-    "pop": dict(gtr=("acoustic", "classic"), drum=0.85, b808=0.7, synth=0.6, pad=0.4),
-    "r&b": dict(gtr=("classic", "spanish"), drum=0.7, b808=0.8, synth=0.6, pad=0.5),
-    "soul": dict(gtr=("classic",), drum=0.65, b808=0.7, synth=0.5, pad=0.5),
-    "hip hop": dict(gtr=("spanish", "trap", "latin"), drum=1.0, b808=1.0, synth=0.6, pad=0.3),
-    "rap": dict(gtr=("spanish", "trap"), drum=1.0, b808=1.0, synth=0.6, pad=0.3),
-    "trap": dict(gtr=("spanish", "trap", "latin"), drum=1.0, b808=1.0, synth=0.7, pad=0.3),
-    "rock": dict(gtr=("electric",), drum=0.9, b808=0.3, synth=0.3, pad=0.3),
-    "edm": dict(gtr=(), drum=0.95, b808=0.9, synth=0.9, pad=0.6),
-    "dance": dict(gtr=(), drum=0.95, b808=0.9, synth=0.9, pad=0.6),
-    "house": dict(gtr=(), drum=0.95, b808=0.85, synth=0.85, pad=0.6),
+    "country": dict(harm=("guitar", "piano"), gtr=("acoustic",), feel="folk", drum=0.4, b808=0.0, color="pad"),
+    "folk": dict(harm=("guitar", "piano"), gtr=("acoustic", "classical"), feel="folk", drum=0.38, b808=0.0, color="pad"),
+    "acoustic": dict(harm=("guitar", "piano"), gtr=("acoustic", "classical", "nylon"), feel="folk", drum=0.35, b808=0.0, color="pad"),
+    "singer-songwriter": dict(harm=("piano", "guitar"), gtr=("acoustic", "classical"), feel="folk", drum=0.38, b808=0.0, color="pad"),
+    "lofi": dict(harm=("piano", "guitar"), gtr=("lofi", "classical", "sadboi"), feel="lofi", drum=0.55, b808=0.45, color="pad"),
+    "latin": dict(harm=("guitar",), gtr=("spanish", "latin", "classical"), feel="latin", drum=0.75, b808=0.6, color="pad"),
+    "pop": dict(harm=("piano", "guitar"), gtr=("acoustic", "classic"), feel="pop", drum=0.78, b808=0.6, color="pad"),
+    "r&b": dict(harm=("piano",), gtr=("classic",), feel="rnb", drum=0.62, b808=0.75, color="pad"),
+    "soul": dict(harm=("piano",), gtr=("classic",), feel="rnb", drum=0.6, b808=0.65, color="pad"),
+    "gospel": dict(harm=("piano",), gtr=("classic",), feel="rnb", drum=0.6, b808=0.5, color="pad"),
+    "hip hop": dict(harm=("piano", "guitar"), gtr=("spanish", "trap", "latin"), feel="trap", drum=1.0, b808=1.0, color="synth"),
+    "rap": dict(harm=("piano", "guitar"), gtr=("spanish", "trap"), feel="trap", drum=1.0, b808=1.0, color="synth"),
+    "trap": dict(harm=("piano", "guitar"), gtr=("spanish", "trap", "latin"), feel="trap", drum=1.0, b808=1.0, color="synth"),
+    "rock": dict(harm=("guitar",), gtr=("electric",), feel="rock", drum=0.88, b808=0.25, color="synth"),
+    "edm": dict(harm=("synth", "piano"), gtr=(), feel="edm", drum=0.95, b808=0.9, color="synth"),
+    "dance": dict(harm=("synth", "piano"), gtr=(), feel="edm", drum=0.95, b808=0.9, color="synth"),
+    "house": dict(harm=("piano", "synth"), gtr=(), feel="edm", drum=0.92, b808=0.85, color="synth"),
 }
-_DEFAULT_LOOP_GENRE = dict(gtr=("acoustic", "classic", "spanish"), drum=0.7, b808=0.6,
-                           synth=0.5, pad=0.4)
+_DEFAULT_LOOP_GENRE = dict(harm=("piano", "guitar"), gtr=("acoustic", "classic", "spanish"),
+                           feel="pop", drum=0.7, b808=0.55, color="pad")
 
-# Per-section layer gains (arrangement dynamics).
+# Per-section layer gains (arrangement dynamics). "Less is more": verses thin out
+# so the (future) vocal is the lead; the color layer is mostly a chorus lift.
 _LAYER = {
-    "harmony": {"intro": 0.85, "verse": 1.0, "prechorus": 1.0, "chorus": 1.0,
-                "bridge": 0.9, "outro": 0.8, "inst": 1.0},
-    "drums": {"intro": 0.0, "verse": 0.8, "prechorus": 0.92, "chorus": 1.0,
-              "bridge": 0.55, "outro": 0.3, "inst": 0.95},
-    "bass": {"intro": 0.0, "verse": 0.85, "prechorus": 0.95, "chorus": 1.0,
-             "bridge": 0.75, "outro": 0.35, "inst": 0.95},
-    "synth": {"intro": 0.45, "verse": 0.3, "prechorus": 0.6, "chorus": 0.9,
-              "bridge": 0.6, "outro": 0.3, "inst": 0.8},
-    "pad": {"intro": 0.7, "verse": 0.5, "prechorus": 0.6, "chorus": 0.85,
-            "bridge": 0.85, "outro": 0.6, "inst": 0.6},
+    "harmony": {"intro": 0.8, "verse": 0.95, "prechorus": 1.0, "chorus": 1.0,
+                "bridge": 0.85, "outro": 0.7, "inst": 1.0},
+    "drums": {"intro": 0.0, "verse": 0.75, "prechorus": 0.9, "chorus": 1.0,
+              "bridge": 0.5, "outro": 0.25, "inst": 0.9},
+    "bass": {"intro": 0.0, "verse": 0.8, "prechorus": 0.95, "chorus": 1.0,
+             "bridge": 0.7, "outro": 0.3, "inst": 0.9},
+    "color": {"intro": 0.35, "verse": 0.15, "prechorus": 0.5, "chorus": 0.8,
+              "bridge": 0.6, "outro": 0.3, "inst": 0.6},
 }
-_LOOP_MIX = {  # (gain_db, highpass_hz, pan), plus reference rms for consistent balance
-    "drums": (-0.5, 28.0, 0.0, 0.20),
-    "bass": (-1.5, 28.0, 0.0, 0.15),
-    "harmony": (-4.0, 90.0, -0.15, 0.13),
-    "synth": (-8.0, 200.0, 0.2, 0.07),
-    "pad": (-11.0, 160.0, 0.3, 0.06),
+_LOOP_MIX = {  # (gain_db, highpass_hz, pan, reference_rms) — consistent balance
+    "drums": (-1.0, 30.0, 0.0, 0.18),
+    "bass": (-2.0, 30.0, 0.0, 0.15),
+    "harmony": (-5.0, 110.0, -0.12, 0.12),
+    "color": (-12.0, 220.0, 0.25, 0.055),
 }
 
 
@@ -871,31 +972,114 @@ def _section_envelope(role: str, ctx: _Ctx, n_total: int) -> np.ndarray:
     return env
 
 
-def _drum_bus(index, ctx, n_total, intensity, rng) -> np.ndarray:
-    """Layer kick+snare+hat+clap (+full loop if present) into one drum stem,
-    hats kept quiet. Time-stretched only (never pitch-shifted)."""
-    target = ctx.bpm
-    elems = [
-        ("kick", ("kick",), 1.0), ("snare", ("snare",), 0.9),
-        ("hat", ("hat",), 0.42), ("openhat", ("openhat",), 0.36),
-        ("clap", ("clap",), 0.7), ("crash", ("crash",), 0.5),
-    ]
+def _place(bus: np.ndarray, start: int, sig: np.ndarray, gain: float) -> None:
+    if start < 0:
+        sig = sig[:, -start:]
+        start = 0
+    if start >= bus.shape[1] or sig.shape[1] == 0:
+        return
+    end = min(bus.shape[1], start + sig.shape[1])
+    bus[:, start:end] += sig[:, : end - start] * gain
+
+
+def _drum_pattern(feel: str, bpb: int, bars: int, intensity: float, rng) -> list[tuple]:
+    """Per-bar (beat, role, velocity) events for a genre groove."""
+    ev: list[tuple] = []
+    mid = bpb // 2
+    for bar in range(bars):
+        b0 = bar * bpb
+        kicks, snares, claps = [], [], []
+        hat_div = 0.5
+        if feel == "trap":
+            kicks = [0.0]
+            if rng.random() < 0.6:
+                kicks.append(mid + 0.5)
+            if rng.random() < 0.4 * intensity:
+                kicks.append(bpb - 1.0)
+            snares = [float(mid)]
+            hat_div = 0.25
+        elif feel == "folk":
+            kicks = [0.0] + ([2.0] if bpb >= 4 else [])
+            snares = [1.0, 3.0] if bpb >= 4 else [float(mid)]
+            hat_div = 1.0
+        elif feel == "latin":
+            kicks = [0.0, float(mid + 0.5 if mid + 0.5 < bpb else mid)]
+            claps = [1.0, 3.0] if bpb >= 4 else [float(mid)]
+        elif feel in ("rnb", "lofi"):
+            kicks = [0.0] + ([2.5] if (bpb >= 4 and rng.random() < 0.6) else [])
+            snares = [1.0, 3.0] if bpb >= 4 else [float(mid)]
+        elif feel == "edm":
+            kicks = [float(b) for b in range(bpb)]
+            claps = [float(mid)]
+        elif feel == "rock":
+            kicks = [0.0, float(mid)]
+            snares = [1.0, 3.0] if bpb >= 4 else [float(mid)]
+        else:  # pop / default
+            kicks = [0.0]
+            if rng.random() < 0.5:
+                kicks.append(float(mid + 0.5 if mid + 0.5 < bpb else bpb - 0.5))
+            snares = [1.0, 3.0] if bpb >= 4 else [float(mid)]
+        for k in kicks:
+            ev.append((b0 + k, "kick", 0.95))
+        for s in snares:
+            ev.append((b0 + s, "snare", 0.85))
+        for c in claps:
+            ev.append((b0 + c, "clap", 0.82))
+        if not (feel == "folk" and intensity < 0.4):
+            p = 0.0
+            while p < bpb - 1e-9:
+                ev.append((b0 + p, "hat", 0.5 if p % 1.0 == 0 else 0.4))
+                p += hat_div
+        if bar % 8 == 0 and intensity > 0.6:
+            ev.append((b0, "crash", 0.4))
+    return ev
+
+
+def _program_drums(index, ctx, n_total, intensity, rng, feel) -> np.ndarray | None:
+    """Sequence a beat from one-shot drum hits (kick/snare/hat/…). Returns None
+    if the essential one-shots aren't in the library (caller loops instead)."""
+    def one(cat):
+        c = [s for s in index if s.get("oneshot") and s["cat"] == cat]
+        return _load(rng.choice(c[: min(5, len(c))])) if c else None
+    kick, snare, hat = one("kick"), one("snare"), one("hat")
+    clap = one("clap") or snare
+    crash = one("crash")
+    if kick is None or hat is None or (snare is None and clap is None):
+        return None
+    samples = {"kick": kick, "snare": snare or clap, "clap": clap or snare,
+               "hat": hat, "crash": crash}
+    lvl = {"kick": 1.0, "snare": 0.92, "clap": 0.82, "hat": 0.4, "crash": 0.5}
     bus = np.zeros((2, n_total), dtype=np.float32)
-    got = False
-    # If a full drum loop fits well, prefer it as the spine.
-    full = _pick(index, ("drumloop",), None, target, rng)
-    if full is not None:
-        y = _warp(_load_loop(full["path"]), full["bpm"], target, 0.0, True)
-        bus += _tile(y, n_total)
-        got = True
-    for role, cats, lvl in elems:
-        s = _pick(index, cats, None, target, rng)
-        if s is None:
+    bars = sum(s["bars"] for s in ctx.structure)
+    spb, bpb = ctx.spb, ctx.bpb
+    for beat, role, vel in _drum_pattern(feel, bpb, bars, intensity, rng):
+        sig = samples.get(role) or samples.get("snare")
+        if sig is None:
             continue
-        y = _warp(_load_loop(s["path"]), s["bpm"], target, 0.0, True) * lvl
-        bus[:, : n_total] += _tile(y, n_total)
-        got = True
-    return bus * intensity if got else bus
+        start = int(beat * spb * SR + rng.uniform(-0.006, 0.006) * SR)
+        _place(bus, start, sig, vel * lvl.get(role, 0.6) * rng.uniform(0.9, 1.0))
+    return bus * intensity
+
+
+def _loop_drums(index, ctx, n_total, intensity, rng) -> np.ndarray:
+    """Fallback: layer drum-element loops (time-stretched only)."""
+    bus = np.zeros((2, n_total), dtype=np.float32)
+    full = _pick(index, ("drumloop",), None, ctx.bpm, rng)
+    if full is not None:
+        bus += _tile(_warp(_load(full), full["bpm"], ctx.bpm, 0.0, True), n_total)
+    for cats, lvl in [(("kick",), 1.0), (("snare",), 0.9), (("hat",), 0.4),
+                      (("clap",), 0.7)]:
+        s = _pick(index, cats, None, ctx.bpm, rng)
+        if s is not None:
+            bus[:, :n_total] += _tile(_warp(_load(s), s["bpm"], ctx.bpm, 0.0, True) * lvl, n_total)
+    return bus * intensity
+
+
+def _drum_bus(index, ctx, n_total, intensity, rng, feel) -> np.ndarray:
+    prog = _program_drums(index, ctx, n_total, intensity, rng, feel)
+    if prog is not None and float(np.abs(prog).max()) > 1e-4:
+        return prog
+    return _loop_drums(index, ctx, n_total, intensity, rng)
 
 
 def _render_loops(plan: dict, progress) -> np.ndarray:
@@ -905,60 +1089,63 @@ def _render_loops(plan: dict, progress) -> np.ndarray:
     ctx = _ctx(plan)
     rng = ctx.rng
     recipe = _LOOP_GENRE.get(ctx.genre, _DEFAULT_LOOP_GENRE)
+    mode = "minor" if ctx.minorish else "major"
     tonic_pc = ctx.scale[0] % 12
     n_total = int(sum(s["bars"] for s in ctx.structure) * ctx.bpb * ctx.spb * SR)
-    if n_total < SR:
-        n_total = SR
-
+    n_total = max(n_total, SR)
     stems: dict = {}
 
-    _p(progress, 0.12, "Laying down the guitars…")
-    gtr = _pick(index, ("guitar",), tonic_pc, ctx.bpm, rng,
-                prefer=recipe["gtr"], mode=("minor" if ctx.minorish else "major"))
-    if gtr is None:
-        gtr = _pick(index, ("guitar", "synth", "pluck"), tonic_pc, ctx.bpm, rng)
-    if gtr is not None:
-        y = _warp(_load_loop(gtr["path"]), gtr["bpm"], ctx.bpm,
-                  _semitones_to(tonic_pc, gtr["pc"]), False)
-        stems["harmony"] = _tile(y, n_total)
+    # --- harmonic bed: ONE instrument (piano or guitar), the song's foundation
+    _p(progress, 0.15, "Laying the harmonic bed…")
+    harmony = None
+    for h in recipe.get("harm", ("piano", "guitar")):
+        cats = ("piano",) if h == "piano" else ("guitar",) if h == "guitar" else ("synth",)
+        prefer = recipe.get("gtr", ()) if h == "guitar" else ()
+        harmony = _pick(index, cats, tonic_pc, ctx.bpm, rng, prefer=prefer, mode=mode)
+        if harmony:
+            break
+    if harmony is None:
+        harmony = _pick(index, ("piano", "guitar", "synth", "pluck"), tonic_pc, ctx.bpm, rng)
+    if harmony is not None:
+        stems["harmony"] = _tile(_warp(_load(harmony), harmony["bpm"], ctx.bpm,
+                                        _semitones_to(tonic_pc, harmony["pc"]), False), n_total)
 
-    _p(progress, 0.35, "Programming the drums…")
-    drums = _drum_bus(index, ctx, n_total, max(0.05, recipe["drum"]), rng)
+    # --- drums (programmed from one-shots when possible)
+    _p(progress, 0.42, "Programming the beat…")
+    drums = _drum_bus(index, ctx, n_total, max(0.05, recipe["drum"]), rng, recipe.get("feel", "pop"))
     if float(np.abs(drums).max()) > 1e-4:
         stems["drums"] = drums
 
+    # --- bass / 808
     if recipe["b808"] > 0.05:
-        _p(progress, 0.55, "Dropping the 808/bass…")
+        _p(progress, 0.6, "Dropping the bass…")
         b = _pick(index, ("b808",), tonic_pc, ctx.bpm, rng)
         if b is not None:
-            y = _warp(_load_loop(b["path"]), b["bpm"], ctx.bpm,
-                      _semitones_to(tonic_pc, b["pc"]), False) * recipe["b808"]
-            stems["bass"] = _tile(y, n_total)
+            stems["bass"] = _tile(_warp(_load(b), b["bpm"], ctx.bpm,
+                                        _semitones_to(tonic_pc, b["pc"]), False) * recipe["b808"],
+                                  n_total)
 
-    if recipe["synth"] > 0.05:
-        _p(progress, 0.68, "Adding synths…")
-        s = _pick(index, ("synth", "arp", "pluck", "pad"), tonic_pc, ctx.bpm, rng,
-                  mode=("minor" if ctx.minorish else "major"))
-        if s is not None:
-            y = _warp(_load_loop(s["path"]), s["bpm"], ctx.bpm,
-                      _semitones_to(tonic_pc, s["pc"]), False)
-            stems["synth"] = _tile(y, n_total)
-
-    if recipe["pad"] > 0.05:
-        _p(progress, 0.76, "Warming it with pads…")
-        s = _pick(index, ("pad", "synth"), tonic_pc, ctx.bpm, rng, prefer=("pad", "texture"))
-        if s is not None:
-            y = _warp(_load_loop(s["path"]), s["bpm"], ctx.bpm,
-                      _semitones_to(tonic_pc, s["pc"]), False)
-            stems["pad"] = _tile(y, n_total)
+    # --- ONE color layer (pad or synth) — mostly a chorus lift, sits low
+    _p(progress, 0.72, "A touch of color…")
+    if recipe.get("color") == "pad":
+        color = _pick(index, ("pad", "synth", "arp"), tonic_pc, ctx.bpm, rng,
+                      prefer=("pad", "texture"), mode=mode)
+    else:
+        color = _pick(index, ("synth", "arp", "pluck", "pad"), tonic_pc, ctx.bpm, rng, mode=mode)
+    # don't double the harmony instrument family
+    if color is not None and harmony is not None and color["name"] == harmony["name"]:
+        color = None
+    if color is not None:
+        stems["color"] = _tile(_warp(_load(color), color["bpm"], ctx.bpm,
+                                     _semitones_to(tonic_pc, color["pc"]), False), n_total)
 
     if not stems:
         raise PipelineError("Could not select any loops from the library.")
 
-    _p(progress, 0.84, "Arranging sections…")
+    _p(progress, 0.84, "Arranging & balancing…")
     bus = np.zeros((2, n_total), dtype=np.float32)
     for name, stem in stems.items():
-        gain_db, hp, pan, ref = _LOOP_MIX.get(name, (-8.0, 120.0, 0.0, 0.08))
+        gain_db, hp, pan, ref = _LOOP_MIX.get(name, (-9.0, 150.0, 0.0, 0.07))
         s = stem[:, :n_total]
         if s.shape[1] < n_total:
             s = np.pad(s, ((0, 0), (0, n_total - s.shape[1])))
@@ -968,17 +1155,35 @@ def _render_loops(plan: dict, progress) -> np.ndarray:
         if cur > 1e-6:
             s = s * (ref / cur)
         s = s * core_audio.db_to_lin(gain_db)
-        env = _section_envelope("bass" if name == "bass" else name, ctx, n_total) \
-            if name in _LAYER else np.ones(n_total, dtype=np.float32)
-        s = s * env
+        if name in _LAYER:
+            s = s * _section_envelope(name, ctx, n_total)
         if abs(pan) > 0.01:
             s = _pan(s, pan)
         bus += s
 
+    bus = _glue_and_pocket(bus)  # vocal pocket + glue → cohesive, vocal-ready
     _p(progress, 0.92, "Mixing & leveling…")
     out = _master(bus, float(os.environ.get("ENJOI_INSTR_LUFS", "-11.0")), progress)
     _p(progress, 0.99, "Instrumental ready")
     return out
+
+
+def _glue_and_pocket(bus: np.ndarray) -> np.ndarray:
+    """Carve a gentle vocal pocket (~2.8 kHz) and glue the mix so it reads as one
+    cohesive track with a tight, consistent waveform (room for the vocal lead)."""
+    pedalboard = deps.optional_import("pedalboard")
+    if pedalboard is None:
+        return bus
+    try:
+        from pedalboard import Compressor, PeakFilter, Pedalboard
+
+        board = Pedalboard([
+            PeakFilter(cutoff_frequency_hz=2800.0, gain_db=-2.5, q=0.8),
+            Compressor(threshold_db=-20.0, ratio=2.5, attack_ms=15, release_ms=160),
+        ])
+        return board(bus, SR).astype(np.float32)
+    except Exception:
+        return bus
 
 
 def available() -> bool:  # noqa: F811  (final definition — loop OR soundfont)
