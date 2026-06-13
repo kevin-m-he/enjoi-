@@ -4,9 +4,9 @@ Three free/cheap pieces + one ~$4.50/mo box:
 
 | Piece | Where | Cost |
 |---|---|---|
-| Frontend (SPA) | Cloudflare Pages → `enjoi.dev` | free |
+| Frontend (SPA) | Cloudflare Pages → `enjoimusic.dev` | free |
 | Sample library | token-gated R2 Worker (`enjoi-samples`) | ~free |
-| Backend (Python generator) | **Hetzner CX22**, Docker, `api.enjoi.dev` | ~$4.50/mo |
+| Backend (Python generator) | **Hetzner CX22**, Docker, `api.enjoimusic.dev` | ~$4.50/mo |
 | DNS + HTTPS | Cloudflare (registrar + DNS) | ~$12/yr domain |
 
 The backend is a **lean CPU image** — the loop instrumental engine, mixing, and
@@ -18,7 +18,7 @@ or add a job queue (ROADMAP §3) when demand grows.
 
 ## 0. Prereqs (once)
 - A Cloudflare account (you already have one: `ed44bf6a…`).
-- Register **`enjoi.dev`**: Cloudflare dash → Domain Registration → Register.
+- Register **`enjoimusic.dev`**: Cloudflare dash → Domain Registration → Register.
 - `npm i -g wrangler` and `wrangler login` on your machine.
 
 ## 1. Deploy the private sample host (R2 Worker)
@@ -54,7 +54,7 @@ powershell -ExecutionPolicy Bypass -File scripts/upload-samples-r2.ps1   # uploa
    ```
 6. Verify (after ~1 min for the cert):
    ```bash
-   curl https://api.enjoi.dev/api/health
+   curl https://api.enjoimusic.dev/api/health
    ```
    Expect a JSON health blob with capability flags.
 
@@ -63,19 +63,19 @@ powershell -ExecutionPolicy Bypass -File scripts/upload-samples-r2.ps1   # uploa
 `kevin-m-he/enjoi-`. Settings:
 - Build command: `cd frontend && npm install && npm run build`
 - Output directory: `frontend/dist`
-- Environment variable: `VITE_API_BASE = https://api.enjoi.dev`
+- Environment variable: `VITE_API_BASE = https://api.enjoimusic.dev`
 
-Then Pages → Custom domains → add `enjoi.dev`.
+Then Pages → Custom domains → add `enjoimusic.dev`.
 
 **Or CLI:**
 ```bash
 cd frontend
-VITE_API_BASE=https://api.enjoi.dev npm run build
+VITE_API_BASE=https://api.enjoimusic.dev npm run build
 npx wrangler pages deploy dist --project-name=enjoi
 ```
 
 ## 4. Smoke-test the live flow
-Open `https://enjoi.dev` → search a reference → generate → upload a vocal →
+Open `https://enjoimusic.dev` → search a reference → generate → upload a vocal →
 arrange → export. Watch `docker compose logs -f api` on the box for job progress.
 
 ---
@@ -92,4 +92,4 @@ arrange → export. Watch `docker compose logs -f api` on the box for job progre
 - **If the image build fails on a missing wheel**, add `build-essential` to the
   `apt-get install` line in `backend/Dockerfile` and rebuild.
 - **CORS** is currently `*`. Fine for launch (no browser-side secrets); tighten
-  to `https://enjoi.dev` in `backend/main.py` when you want to lock it down.
+  to `https://enjoimusic.dev` in `backend/main.py` when you want to lock it down.

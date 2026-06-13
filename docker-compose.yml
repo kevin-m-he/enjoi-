@@ -3,7 +3,7 @@
 #   1) Put secrets in a .env file next to this one (see docs/DEPLOY.md):
 #        ENJOI_SAMPLE_CDN=https://enjoi-samples.<subdomain>.workers.dev
 #        ENJOI_SAMPLE_CDN_TOKEN=<the SAMPLE_TOKEN you set on the Worker>
-#   2) Point api.enjoi.dev (DNS-only / grey cloud) at this box's IP.
+#   2) Point api.enjoimusic.dev (DNS-only / grey cloud) at this box's IP.
 #   3) docker compose up -d --build
 #
 # Caddy terminates HTTPS (auto Let's Encrypt) and reverse-proxies to the API, so
