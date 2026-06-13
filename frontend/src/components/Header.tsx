@@ -1,5 +1,5 @@
 import CapabilityBadge from './CapabilityBadge';
-import { FoamMark } from './WaveArt';
+import { FoamMark, PixelHeart } from './WaveArt';
 import { useStore } from '../store';
 
 export default function Header() {
@@ -10,7 +10,19 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-30 border-b-4 border-ink bg-washi">
-      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6">
+      <div className="relative mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6">
+        {/* Support the dev — dead-center in the bar, shown on wide screens */}
+        <a
+          href="https://venmo.com/u/Kevin-He-516"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Support the developer on Venmo"
+          className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 whitespace-nowrap text-xs font-bold text-prussian-700 transition hover:text-ink lg:flex"
+        >
+          <PixelHeart className="h-3 w-[14px] shrink-0 text-cyan" />
+          <span>Support the Developer: Venmo @Kevin-He-516</span>
+          <PixelHeart className="h-3 w-[14px] shrink-0 text-pink" />
+        </a>
         <div className="flex min-w-0 items-center gap-3">
           <FoamMark className="hidden h-7 w-11 shrink-0 sm:block" />
           <h1 className="font-display text-3xl font-black tracking-tight">

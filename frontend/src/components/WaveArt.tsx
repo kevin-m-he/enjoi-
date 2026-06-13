@@ -18,6 +18,30 @@ export function LockIcon({ className = '' }: { className?: string }) {
 }
 
 /**
+ * Tiny 7×6 pixel-art heart. Fill follows `currentColor`, so colour it with a
+ * text-* utility (e.g. `text-cyan` / `text-pink`). `crispEdges` keeps the
+ * blocky pixel look at any size.
+ */
+export function PixelHeart({ className = '' }: { className?: string }) {
+  const cells: [number, number][] = [
+    [1, 0], [2, 0], [4, 0], [5, 0],
+    [0, 1], [1, 1], [2, 1], [3, 1], [4, 1], [5, 1], [6, 1],
+    [0, 2], [1, 2], [2, 2], [3, 2], [4, 2], [5, 2], [6, 2],
+    [1, 3], [2, 3], [3, 3], [4, 3], [5, 3],
+    [2, 4], [3, 4], [4, 4],
+    [3, 5],
+  ];
+  return (
+    <svg viewBox="0 0 7 6" className={className} fill="currentColor"
+         shapeRendering="crispEdges" aria-hidden="true">
+      {cells.map(([x, y]) => (
+        <rect key={`${x}-${y}`} x={x} y={y} width="1" height="1" />
+      ))}
+    </svg>
+  );
+}
+
+/**
  * The iconic clawing Great Wave, recolored to fuse the Kanagawa Prussian-blue
  * with the vibrant cyan highlights and hot-pink foam accents. Pure inline SVG.
  */
