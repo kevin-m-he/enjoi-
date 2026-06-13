@@ -513,10 +513,11 @@ def generate_instrumental(project, plan: dict, progress) -> dict:
             # ---- render -----------------------------------------------------
             audio = None
             if engine_kind == "band":
-                engine_name = "band-soundfont"
-                render_p(0.0, "Engine: real-instrument band (SoundFont)")
+                render_p(0.0, "Engine: real-instrument band")
                 try:
                     audio = band.render_band(current_plan, render_p)
+                    # label by the sub-engine that actually rendered (loops vs SF)
+                    engine_name = f"band-{getattr(band, 'LAST_ENGINE', 'soundfont')}"
                 except Exception as exc:
                     render_p(0.0, f"Band engine failed ({type(exc).__name__}) — "
                                   "falling back")

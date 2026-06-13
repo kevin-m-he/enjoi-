@@ -497,35 +497,115 @@ def _mix_stems(stems: dict, progress) -> np.ndarray:
     return bus
 
 
-def _master(bus: np.ndarray, loudness_lufs: float, progress) -> np.ndarray:
-    pedalboard = deps.optional_import("pedalboard")
-    x = bus
-    if pedalboard is not None:
+def _shelf(x: np.ndarray, f0: float, gain_db: float, high: bool) -> np.ndarray:
+    """RBJ low/high shelf (pedalboard when available, biquad fallback)."""
+    if abs(gain_db) < 1e-3:
+        return x
+    pb = deps.optional_import("pedalboard")
+    name = "HighShelfFilter" if high else "LowShelfFilter"
+    if pb is not None and hasattr(pb, name):
         try:
-            from pedalboard import Compressor, HighShelfFilter, Limiter, Pedalboard, Reverb
-
-            board = Pedalboard([
-                Reverb(room_size=0.18, wet_level=0.10, dry_level=0.92, width=0.9),
-                Compressor(threshold_db=-18.0, ratio=2.0, attack_ms=12, release_ms=180),
-                HighShelfFilter(cutoff_frequency_hz=8000, gain_db=1.5),
-                Limiter(threshold_db=-1.0, release_ms=120),
-            ])
-            x = board(x, SR)
+            flt = getattr(pb, name)(cutoff_frequency_hz=f0, gain_db=gain_db, q=0.707)
+            return np.asarray(pb.Pedalboard([flt])(x.astype(np.float32), SR), dtype=np.float32)
         except Exception:
             pass
-    # Loudness normalize to target (mainstream), then true-peak guard.
+    from scipy.signal import lfilter
+    A = 10.0 ** (gain_db / 40.0)
+    w0 = 2.0 * math.pi * f0 / SR
+    cw, sw = math.cos(w0), math.sin(w0)
+    alpha = sw / 2.0 * math.sqrt(2.0)
+    sq = 2.0 * math.sqrt(A) * alpha
+    if high:
+        b = [A * ((A + 1) + (A - 1) * cw + sq), -2 * A * ((A - 1) + (A + 1) * cw),
+             A * ((A + 1) + (A - 1) * cw - sq)]
+        a = [(A + 1) - (A - 1) * cw + sq, 2 * ((A - 1) - (A + 1) * cw),
+             (A + 1) - (A - 1) * cw - sq]
+    else:
+        b = [A * ((A + 1) - (A - 1) * cw + sq), 2 * A * ((A - 1) - (A + 1) * cw),
+             A * ((A + 1) - (A - 1) * cw - sq)]
+        a = [(A + 1) + (A - 1) * cw + sq, -2 * ((A - 1) + (A + 1) * cw),
+             (A + 1) + (A - 1) * cw - sq]
+    return lfilter(np.asarray(b) / a[0], np.asarray(a) / a[0], x, axis=-1).astype(np.float32)
+
+
+def _measure_lufs(x: np.ndarray) -> float:
     pyln = deps.optional_import("pyloudnorm")
     if pyln is not None:
         try:
-            meter = pyln.Meter(SR)
-            loud = meter.integrated_loudness(x.T)
-            if math.isfinite(loud):
-                x = (x * core_audio.db_to_lin(loudness_lufs - loud)).astype(np.float32)
+            v = float(pyln.Meter(SR).integrated_loudness(x.T.astype(np.float64)))
+            if math.isfinite(v):
+                return v
         except Exception:
             pass
-    peak = float(np.max(np.abs(x))) if x.size else 0.0
-    if peak > core_audio.db_to_lin(-1.0):
-        x = x * (core_audio.db_to_lin(-1.0) / peak)
+    return core_audio.lin_to_db(_rms(x)) if x.size else float("-inf")
+
+
+def _limit_true_peak(x: np.ndarray, ceiling_db: float = -1.0) -> np.ndarray:
+    """4x-oversampled lookahead brickwall limiter — caps the TRUE peak without
+    scaling the whole mix down, so the loudness we just set is preserved."""
+    from scipy.ndimage import minimum_filter1d, uniform_filter1d
+    from scipy.signal import resample_poly
+
+    n = x.shape[-1]
+    if n == 0:
+        return x
+    ceiling = core_audio.db_to_lin(ceiling_db)
+    up = resample_poly(x.astype(np.float64), 4, 1, axis=-1)
+    if up.shape[-1] < 4 * n:
+        up = np.pad(up, [(0, 0)] * (up.ndim - 1) + [(0, 4 * n - up.shape[-1])])
+    tp = np.abs(up[..., : 4 * n]).reshape(x.shape[0], n, 4).max(axis=-1).max(axis=0)
+    required = np.minimum(1.0, ceiling / np.maximum(tp, 1e-9))
+    win = max(int(0.004 * SR) | 1, 3)  # ~4 ms lookahead, odd width
+    gain = minimum_filter1d(required, size=win, mode="nearest")
+    gain = uniform_filter1d(gain, size=win, mode="nearest")
+    gain = np.minimum(gain, required)
+    out = (x * gain[None, :]).astype(np.float32)
+    np.clip(out, -ceiling, ceiling, out=out)
+    return out
+
+
+def _master(bus: np.ndarray, loudness_lufs: float, progress) -> np.ndarray:
+    """Mainstream-leaning master: tonal balance → glue → loudness → true-peak limit.
+
+    The previous chain reverb-washed the whole bus (muddying the low end) and used
+    a naive 'scale the mix down to -1 peak' guard that *undid* the loudness target.
+    This chain controls the low end, adds air, hits the LUFS target, and then a
+    real oversampled limiter caps the true peak while keeping the loudness.
+    """
+    x = np.nan_to_num(bus, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
+
+    # --- tonal balance toward a mainstream target -------------------------
+    # Measured outputs ran dark (~ -6 dB/oct, <1% energy >4 kHz) and boomy
+    # (>74% <200 Hz). Tame sub-mud, add presence + air. Gentle, genre-agnostic.
+    x = _hpf(x, 28.0)                       # clear true sub rumble
+    x = _shelf(x, 130.0, -2.5, high=False)  # control low-end boom
+    x = _shelf(x, 3000.0, +1.8, high=True)  # presence / clarity
+    x = _shelf(x, 8500.0, +4.0, high=True)  # air / sheen
+
+    # --- glue compression (bus cohesion) ----------------------------------
+    pedalboard = deps.optional_import("pedalboard")
+    if pedalboard is not None:
+        try:
+            from pedalboard import Compressor, Pedalboard
+            x = Pedalboard([Compressor(threshold_db=-16.0, ratio=2.0,
+                                       attack_ms=15, release_ms=180)])(x, SR)
+            x = np.asarray(x, dtype=np.float32)
+        except Exception:
+            pass
+
+    # --- loudness normalize, THEN limit (order matters) -------------------
+    measured = _measure_lufs(x)
+    if math.isfinite(measured):
+        x = (x * core_audio.db_to_lin(loudness_lufs - measured)).astype(np.float32)
+    x = _limit_true_peak(x, -1.0)
+
+    # If the limiter ate loudness (hot input), one corrective make-up pass.
+    after = _measure_lufs(x)
+    if math.isfinite(after) and (loudness_lufs - after) > 0.5:
+        x = (x * core_audio.db_to_lin(min(loudness_lufs - after, 3.0))).astype(np.float32)
+        x = _limit_true_peak(x, -1.0)
+
+    x = np.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
     return np.clip(x, -1.0, 1.0).astype(np.float32)
 
 
@@ -1048,18 +1128,24 @@ def _program_drums(index, ctx, n_total, intensity, rng, feel) -> np.ndarray | No
         c = [s for s in index if s.get("oneshot") and s["cat"] == cat]
         return _load(rng.choice(c[: min(5, len(c))])) if c else None
     kick, snare, hat = one("kick"), one("snare"), one("hat")
-    clap = one("clap") or snare
+    clap = one("clap")
     crash = one("crash")
     if kick is None or hat is None or (snare is None and clap is None):
         return None
-    samples = {"kick": kick, "snare": snare or clap, "clap": clap or snare,
+    # NB: these are numpy arrays — never use `a or b` (ambiguous truth value);
+    # fall back explicitly when a hit is missing.
+    snare_s = snare if snare is not None else clap
+    clap_s = clap if clap is not None else snare
+    samples = {"kick": kick, "snare": snare_s, "clap": clap_s,
                "hat": hat, "crash": crash}
     lvl = {"kick": 1.0, "snare": 0.92, "clap": 0.82, "hat": 0.4, "crash": 0.5}
     bus = np.zeros((2, n_total), dtype=np.float32)
     bars = sum(s["bars"] for s in ctx.structure)
     spb, bpb = ctx.spb, ctx.bpb
     for beat, role, vel in _drum_pattern(feel, bpb, bars, intensity, rng):
-        sig = samples.get(role) or samples.get("snare")
+        sig = samples.get(role)
+        if sig is None:
+            sig = samples.get("snare")
         if sig is None:
             continue
         start = int(beat * spb * SR + rng.uniform(-0.006, 0.006) * SR)
@@ -1196,15 +1282,24 @@ def available() -> bool:  # noqa: F811  (final definition — loop OR soundfont)
     return library_available() or deps.has("tinysoundfont")
 
 
+# Which sub-engine produced the most recent render ("loops" or "soundfont").
+# generate.py reads this so the reported engine name is accurate.
+LAST_ENGINE = "soundfont"
+
+
 def render_band(plan: dict, progress: Callable | None = None) -> np.ndarray:
     """Render a real-sample, mixed, leveled instrumental → (2, n).
 
     Primary: the local loop library (real commercial loops warped to the target
     tempo & key and arranged). Fallback: the General-MIDI SoundFont.
     """
+    global LAST_ENGINE
     if library_available() and os.environ.get("ENJOI_ENGINE", "").lower() != "soundfont":
         try:
-            return _render_loops(plan, progress)
+            out = _render_loops(plan, progress)
+            LAST_ENGINE = "loops"
+            return out
         except Exception as exc:
             _p(progress, 0.02, f"Loop engine fell back ({type(exc).__name__})")
+    LAST_ENGINE = "soundfont"
     return _render_soundfont(plan, progress)

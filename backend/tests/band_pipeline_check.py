@@ -49,7 +49,11 @@ print(f"grid.engine={grid.get('engine')} peak={float(np.abs(y).max()):.3f} rms={
 print("max progress frac reached:", max(f for f, _ in msgs))
 shutil.copy(project.instrumental_path, r"C:\Users\kevin\Desktop\enjoi_band_pipeline.wav")
 
-assert out["engine"] == "band-soundfont", f"expected band engine, got {out['engine']}"
+# With a local sample_library present, the primary loop engine renders (real
+# warped commercial loops); band-soundfont is only the no-library fallback.
+assert out["engine"] == "band-loops", \
+    f"sample_library present — expected band-loops, got {out['engine']} " \
+    "(loop engine regressed back to the SoundFont fallback)"
 assert out["report"].get("attempts") == 1, "should be a single render"
 assert np.isfinite(y).all() and float(np.abs(y).max()) > 0.05, "silent/NaN"
 assert dt < 60, f"too slow: {dt}s"
