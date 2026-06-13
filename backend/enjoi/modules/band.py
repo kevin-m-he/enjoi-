@@ -15,6 +15,7 @@ is unavailable.
 """
 from __future__ import annotations
 
+import logging
 import math
 import os
 import random
@@ -26,6 +27,7 @@ from ..core import audio as core_audio
 from ..core import config, deps
 from ..core.errors import PipelineError
 
+log = logging.getLogger("enjoi.band")
 SR = config.SAMPLE_RATE
 SOUNDFONT_FILE = "FluidR3_GM.sf2"
 SOUNDFONT_URL = "https://github.com/Jacalz/fluid-soundfont/raw/master/original-files/FluidR3_GM.sf2"
@@ -1158,12 +1160,34 @@ def _drum_pattern(feel: str, bpb: int, bars: int, intensity: float, rng) -> list
     return ev
 
 
+def _safe_warp_tile(entry, ctx, tonic_pc, n_total, is_drum=False, gain=1.0):
+    """Load → warp → tile one library entry into a (2,n) stem. Returns None on
+    ANY failure (missing/unfetchable sample, decode/warp error) so a single bad
+    instrument is OMITTED from the song instead of failing the whole render."""
+    if entry is None:
+        return None
+    try:
+        y = _load(entry)
+        semis = 0.0 if is_drum else _semitones_to(tonic_pc, entry.get("pc"))
+        y = _warp(y, entry.get("bpm"), ctx.bpm, semis, is_drum)
+        return _tile(y * gain, n_total)
+    except Exception as exc:
+        log.warning("skipping loop %r: %s", entry.get("name") if entry else None, exc)
+        return None
+
+
 def _program_drums(index, ctx, n_total, intensity, rng, feel) -> np.ndarray | None:
     """Sequence a beat from one-shot drum hits (kick/snare/hat/…). Returns None
     if the essential one-shots aren't in the library (caller loops instead)."""
     def one(cat):
         c = [s for s in index if s.get("oneshot") and s["cat"] == cat]
-        return _load(rng.choice(c[: min(5, len(c))])) if c else None
+        if not c:
+            return None
+        try:
+            return _load(rng.choice(c[: min(5, len(c))]))
+        except Exception as exc:  # unfetchable one-shot → just omit it
+            log.warning("drum one-shot %s skipped: %s", cat, exc)
+            return None
     kick, snare, hat = one("kick"), one("snare"), one("hat")
     clap = one("clap")
     crash = one("crash")
@@ -1191,16 +1215,20 @@ def _program_drums(index, ctx, n_total, intensity, rng, feel) -> np.ndarray | No
 
 
 def _loop_drums(index, ctx, n_total, intensity, rng) -> np.ndarray:
-    """Fallback: layer drum-element loops (time-stretched only)."""
+    """Fallback: layer drum-element loops (time-stretched only). Any loop that
+    can't be fetched/loaded is simply skipped."""
     bus = np.zeros((2, n_total), dtype=np.float32)
     full = _pick(index, ("drumloop",), None, ctx.bpm, rng)
     if full is not None:
-        bus += _tile(_warp(_load(full), full["bpm"], ctx.bpm, 0.0, True), n_total)
+        st = _safe_warp_tile(full, ctx, None, n_total, is_drum=True)
+        if st is not None:
+            bus += st
     for cats, lvl in [(("kick",), 1.0), (("snare",), 0.9), (("hat",), 0.4),
                       (("clap",), 0.7)]:
         s = _pick(index, cats, None, ctx.bpm, rng)
-        if s is not None:
-            bus[:, :n_total] += _tile(_warp(_load(s), s["bpm"], ctx.bpm, 0.0, True) * lvl, n_total)
+        st = _safe_warp_tile(s, ctx, None, n_total, is_drum=True, gain=lvl)
+        if st is not None:
+            bus[:, :n_total] += st
     return bus * intensity
 
 
@@ -1224,6 +1252,9 @@ def _render_loops(plan: dict, progress) -> np.ndarray:
     n_total = max(n_total, SR)
     stems: dict = {}
 
+    # Every layer is OPTIONAL: if its sample can't be selected/fetched/loaded it
+    # is simply omitted (not a fatal error). We only fail if NOTHING loads.
+
     # --- harmonic bed: ONE instrument (piano or guitar), the song's foundation
     _p(progress, 0.15, "Laying the harmonic bed…")
     harmony = None
@@ -1235,24 +1266,29 @@ def _render_loops(plan: dict, progress) -> np.ndarray:
             break
     if harmony is None:
         harmony = _pick(index, ("piano", "guitar", "synth", "pluck"), tonic_pc, ctx.bpm, rng)
-    if harmony is not None:
-        stems["harmony"] = _tile(_warp(_load(harmony), harmony["bpm"], ctx.bpm,
-                                        _semitones_to(tonic_pc, harmony["pc"]), False), n_total)
+    stem = _safe_warp_tile(harmony, ctx, tonic_pc, n_total)
+    if stem is not None:
+        stems["harmony"] = stem
+    else:
+        harmony = None
 
     # --- drums (programmed from one-shots when possible)
     _p(progress, 0.42, "Programming the beat…")
-    drums = _drum_bus(index, ctx, n_total, max(0.05, recipe["drum"]), rng, recipe.get("feel", "pop"))
-    if float(np.abs(drums).max()) > 1e-4:
-        stems["drums"] = drums
+    try:
+        drums = _drum_bus(index, ctx, n_total, max(0.05, recipe["drum"]), rng,
+                          recipe.get("feel", "pop"))
+        if float(np.abs(drums).max()) > 1e-4:
+            stems["drums"] = drums
+    except Exception as exc:
+        log.warning("drums omitted: %s", exc)
 
     # --- bass / 808
     if recipe["b808"] > 0.05:
         _p(progress, 0.6, "Dropping the bass…")
         b = _pick(index, ("b808",), tonic_pc, ctx.bpm, rng)
-        if b is not None:
-            stems["bass"] = _tile(_warp(_load(b), b["bpm"], ctx.bpm,
-                                        _semitones_to(tonic_pc, b["pc"]), False) * recipe["b808"],
-                                  n_total)
+        stem = _safe_warp_tile(b, ctx, tonic_pc, n_total, gain=recipe["b808"])
+        if stem is not None:
+            stems["bass"] = stem
 
     # --- ONE color layer (pad or synth) — mostly a chorus lift, sits low
     _p(progress, 0.72, "A touch of color…")
@@ -1264,9 +1300,11 @@ def _render_loops(plan: dict, progress) -> np.ndarray:
     # don't double the harmony instrument family
     if color is not None and harmony is not None and color["name"] == harmony["name"]:
         color = None
-    if color is not None:
-        stems["color"] = _tile(_warp(_load(color), color["bpm"], ctx.bpm,
-                                     _semitones_to(tonic_pc, color["pc"]), False), n_total)
+    stem = _safe_warp_tile(color, ctx, tonic_pc, n_total)
+    if stem is not None:
+        stems["color"] = stem
+    else:
+        color = None
 
     # --- a SECOND texture (pluck / arp / synth) for movement & modern variety —
     # uses more of the library than just "a band". Sits low, mostly in the
@@ -1276,11 +1314,12 @@ def _render_loops(plan: dict, progress) -> np.ndarray:
     tex_cats = ("pluck", "arp", "synth") if recipe.get("color") == "pad" else ("arp", "pluck", "synth")
     texture = _pick(index, tex_cats, tonic_pc, ctx.bpm, rng, mode=mode)
     if texture is not None and texture["name"] not in used:
-        stems["texture"] = _tile(_warp(_load(texture), texture["bpm"], ctx.bpm,
-                                       _semitones_to(tonic_pc, texture["pc"]), False), n_total)
+        stem = _safe_warp_tile(texture, ctx, tonic_pc, n_total)
+        if stem is not None:
+            stems["texture"] = stem
 
     if not stems:
-        raise PipelineError("Could not select any loops from the library.")
+        raise PipelineError("Could not build any instruments from the library.")
 
     _p(progress, 0.84, "Arranging & balancing…")
     bus = np.zeros((2, n_total), dtype=np.float32)
