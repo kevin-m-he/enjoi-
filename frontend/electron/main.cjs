@@ -59,11 +59,14 @@ function createWindow() {
     },
   });
 
-  const useDevServer = !!process.env.VITE_DEV_SERVER || !app.isPackaged;
+  // Dev server only when explicitly requested (npm run dev sets
+  // VITE_DEV_SERVER) or when there is no production build to load.
+  const distIndex = path.join(__dirname, '..', 'dist', 'index.html');
+  const useDevServer = !!process.env.VITE_DEV_SERVER || !fs.existsSync(distIndex);
   if (useDevServer) {
     mainWindow.loadURL('http://localhost:5173');
   } else {
-    mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
+    mainWindow.loadFile(distIndex);
   }
 
   mainWindow.on('closed', () => {

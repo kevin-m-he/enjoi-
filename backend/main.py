@@ -25,9 +25,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="enjoi", version=__version__, lifespan=lifespan)
 
+# The server binds to 127.0.0.1 only; the Electron renderer may arrive from the
+# vite dev server, an app:// scheme, or file:// (origin "null"), so allow all.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "app://."],
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
