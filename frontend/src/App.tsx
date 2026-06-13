@@ -122,16 +122,16 @@ export default function App() {
   );
 }
 
-/** Tiny dark-blue scripture in the bottom-right corner. */
+/** Tiny dark-blue scripture pinned at the bottom-right of the page (in flow, so
+ *  it doesn't float over the content as you scroll), with balanced line lengths. */
 function VerseFooter() {
   return (
-    <p
-      aria-hidden
-      className="pointer-events-none fixed bottom-1.5 right-3 z-20 max-w-[280px] text-right text-[8px] leading-snug text-prussian-700/80"
-    >
-      Isaiah 43:2, When you pass through the waters, I will be with you; and when you pass through
-      the rivers, they will not sweep over you. When you walk through the fire, you will not be
-      burned; the flames will not set you ablaze.
-    </p>
+    <footer className="mt-auto flex w-full justify-end px-4 pb-2 pt-6">
+      <p className="max-w-[300px] text-balance text-right text-[8px] leading-snug text-prussian-700/80">
+        Isaiah 43:2, When you pass through the waters, I will be with you; and when you pass through
+        the rivers, they will not sweep over you. When you walk through the fire, you will not be
+        burned; the flames will not set you ablaze.
+      </p>
+    </footer>
   );
 }

@@ -765,12 +765,18 @@ def _resolve(entry: dict) -> str:
     base = _cdn_base()
     if not base:
         raise PipelineError(f"Sample unavailable and no ENJOI_SAMPLE_CDN set: {entry['name']}")
+    import shutil
     import urllib.parse
     import urllib.request
 
     url = base + "/" + urllib.parse.quote(entry["name"])
+    req = urllib.request.Request(url)
+    token = os.environ.get("ENJOI_SAMPLE_CDN_TOKEN", "").strip()
+    if token:  # the hosted samples are private (token-gated) to respect licensing
+        req.add_header("x-enjoi-token", token)
     tmp = cached.with_suffix(cached.suffix + ".part")
-    urllib.request.urlretrieve(url, str(tmp))
+    with urllib.request.urlopen(req, timeout=60) as r, open(tmp, "wb") as f:
+        shutil.copyfileobj(r, f)
     tmp.replace(cached)
     return str(cached)
 

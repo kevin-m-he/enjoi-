@@ -1,6 +1,6 @@
 {
  "version": 1,
- "count": 128,
+ "count": 144,
  "samples": [
   {
    "name": "01 Cyber Securitas Synth swell Fm 150 bpm.wav",
@@ -121,6 +121,14 @@
    "pc": null,
    "mode": null,
    "dur": 7.385
+  },
+  {
+   "name": "04-LatinTrapVocals-Oneshot-808_D.wav",
+   "cat": "b808",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 2.4
   },
   {
    "name": "08_Trippie Nation_G#m_151bpm_Synth Lead.wav",
@@ -297,6 +305,14 @@
    "pc": 0,
    "mode": "major",
    "dur": 10.667
+  },
+  {
+   "name": "AAGE_kick_boomin.wav",
+   "cat": "kick",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 0.75
   },
   {
    "name": "AALN_Piano_01_keyBmin_90bpm.wav",
@@ -515,6 +531,14 @@
    "dur": 13.714
   },
   {
+   "name": "ES8D_Trap_808_C_boomin.wav",
+   "cat": "b808",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 3.697
+  },
+  {
    "name": "ESLM_Latin_Melody_Loop_96bpm_KeyDmin_Mandolin.wav",
    "cat": "guitar",
    "bpm": 96,
@@ -529,6 +553,22 @@
    "pc": null,
    "mode": null,
    "dur": 16.696
+  },
+  {
+   "name": "ESVS2_Vintage_Synth_Bass_D_Flanger.wav",
+   "cat": "synth",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 4.0
+  },
+  {
+   "name": "FA_RR_02_808.wav",
+   "cat": "b808",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 1.264
   },
   {
    "name": "FL_HRS_Kit05_Synth_Loop_Melody_Harpsichord_Degraded_140_Em.wav",
@@ -603,6 +643,14 @@
    "dur": 27.826
   },
   {
+   "name": "HRCA_boomin_trap_clap_dip it.wav",
+   "cat": "clap",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 0.4
+  },
+  {
    "name": "HRCA_boomin_trap_full_drum_loop_130_fat.wav",
    "cat": "drumloop",
    "bpm": 130,
@@ -619,6 +667,14 @@
    "dur": 7.385
   },
   {
+   "name": "HRCA_boomin_trap_hihat_bright.wav",
+   "cat": "hat",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 0.5
+  },
+  {
    "name": "HRCA_boomin_trap_hihat_loop_130_loud.wav",
    "cat": "hat",
    "bpm": 130,
@@ -627,12 +683,36 @@
    "dur": 27.826
   },
   {
+   "name": "HRCA_boomin_trap_kick_trunk.wav",
+   "cat": "kick",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 0.375
+  },
+  {
+   "name": "HRCA_boomin_trap_percussion_layer kick.wav",
+   "cat": "kick",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 0.5
+  },
+  {
    "name": "HRCA_boomin_trap_snare_loop_130_punch.wav",
    "cat": "snare",
    "bpm": 130,
    "pc": null,
    "mode": null,
    "dur": 14.769
+  },
+  {
+   "name": "HRCA_boomin_trap_snare_snitch.wav",
+   "cat": "snare",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 0.5
   },
   {
    "name": "JSN_Lemon_Arp_Loop_A#m_105BPM.wav",
@@ -665,6 +745,14 @@
    "pc": null,
    "mode": null,
    "dur": 6.857
+  },
+  {
+   "name": "KKATL_808_BigFoot_C.wav",
+   "cat": "b808",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 2.191
   },
   {
    "name": "Kuya RnB Wurl Dirty_keyCMaj_65bpm.wav",
@@ -753,6 +841,14 @@
    "pc": null,
    "mode": null,
    "dur": 9.143
+  },
+  {
+   "name": "Metro Boomin.wav",
+   "cat": "other",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 0.571
   },
   {
    "name": "ML2-3-Guitar2_100bpm_C.wav",
@@ -851,12 +947,28 @@
    "dur": 9.6
   },
   {
+   "name": "SCY007_ 03_808_C.wav",
+   "cat": "b808",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 1.385
+  },
+  {
    "name": "SG Spanish 1 160bpm Gm Spanish Guitar.wav",
    "cat": "guitar",
    "bpm": 160,
    "pc": 7,
    "mode": "minor",
    "dur": 17.439
+  },
+  {
+   "name": "Skull_X_Bone_Drill_Trap_snare_boomin.wav",
+   "cat": "snare",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 0.162
   },
   {
    "name": "SL_LAD_89_Synth_Up_Loop_Block_C#min.wav",
@@ -1011,6 +1123,14 @@
    "dur": 3.273
   },
   {
+   "name": "UR_DREAMWAY_808_One_Shot_07_C.wav",
+   "cat": "b808",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 4.0
+  },
+  {
    "name": "Urban Made Piano V1 80b - Bbm.wav",
    "cat": "piano",
    "bpm": null,
@@ -1025,6 +1145,14 @@
    "pc": null,
    "mode": null,
    "dur": 13.714
+  },
+  {
+   "name": "Warm 808 324.wav",
+   "cat": "b808",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 2.149
   }
  ]
 }

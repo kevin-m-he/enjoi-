@@ -1,0 +1,20 @@
+# Cloudflare Worker that serves the enjoi sample library from a PRIVATE R2 bucket.
+# Deploy (from this folder, after `wrangler login`):
+#   wrangler r2 bucket create enjoi-samples
+#   wrangler secret put SAMPLE_TOKEN          # paste a long random token
+#   wrangler deploy
+# Then upload the loops:  scripts\upload-samples-r2.ps1
+# Then point the app at it:
+#   $env:ENJOI_SAMPLE_CDN       = "https://enjoi-samples.<your-subdomain>.workers.dev"
+#   $env:ENJOI_SAMPLE_CDN_TOKEN = "<the same token>"
+name = "enjoi-samples"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+account_id = "ed44bf6a3eb269c0cb18d216dcb6765c"
+
+[[r2_buckets]]
+binding = "SAMPLES"
+bucket_name = "enjoi-samples"
+
+# SAMPLE_TOKEN is set as a SECRET (never in this file):
+#   wrangler secret put SAMPLE_TOKEN

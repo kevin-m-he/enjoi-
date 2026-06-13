@@ -12,3 +12,5 @@ Thumbs.db
 backend/.wheels/
 backend/sample_library/
 .claude/launch.json
+.wrangler/
+cloudflare/**/node_modules/
