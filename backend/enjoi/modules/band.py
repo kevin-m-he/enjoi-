@@ -866,6 +866,13 @@ def _resolve(entry: dict) -> str:
     token = os.environ.get("ENJOI_SAMPLE_CDN_TOKEN", "").strip()
     if token:  # the hosted samples are private (token-gated) to respect licensing
         req.add_header("x-enjoi-token", token)
+    # Cloudflare bot-blocks the default "Python-urllib" User-Agent at the edge
+    # (403 before the Worker even runs), so present a normal browser UA.
+    req.add_header(
+        "User-Agent",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+    )
     tmp = cached.with_suffix(cached.suffix + ".part")
     with urllib.request.urlopen(req, timeout=60) as r, open(tmp, "wb") as f:
         shutil.copyfileobj(r, f)
