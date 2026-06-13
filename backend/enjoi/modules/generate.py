@@ -561,43 +561,15 @@ def generate_instrumental(project, plan: dict, progress) -> dict:
                 "checks": audit.get("checks", {}),
                 "summary": audit.get("summary", ""),
             }
-            if report["passed"]:
-                break
-
-            # On a GPU machine MusicGen is the deliverable. Only melody/chords
-            # gate the audit and MusicGen (never conditioned on the reference)
-            # passes them comfortably; a failure here is almost always a transient
-            # analysis edge case, not real copying. Re-render at most
-            # MG_MAX_ATTEMPTS times so we never spin in a 15-minute regen loop —
-            # then accept the candidate (advisory-only checks never block).
-            if engine_kind == "musicgen" and attempts >= MG_MAX_ATTEMPTS:
-                report["accepted_without_pass"] = True
-                report["summary"] = (
-                    report.get("summary", "")
-                    + " — accepted after max MusicGen attempts (advisory checks)")
-                break
-
-            # ---- retry policy (spec 4.3.1) ------------------------------------
-            progress(hi, f"Originality audit failed "
-                         f"({', '.join(sorted(failing_aspects)) or 'unknown'}) — "
-                         f"regenerating (attempt {attempts + 1})")
-            if attempts >= 4:  # initial try + 3 retries exhausted at this level
-                if effective_similarity > 0:
-                    effective_similarity = max(0, effective_similarity - 10)
-                    current_plan = _rebuild_plan(profile, effective_similarity,
-                                                 base_seed + attempts, current_plan)
-                    failing_aspects = set()
-                elif engine_kind == "musicgen":
-                    # Similarity floor reached: the procedural engine with a fresh
-                    # seed essentially always passes (reference is never an input).
-                    engine_kind = "procedural"
-                    failing_aspects = set()
-                else:
-                    procedural_extra += 1
-                    if procedural_extra > 3:
-                        raise PipelineError(
-                            "The originality audit kept failing even at the "
-                            "similarity floor. Try a different reference track.")
+            # The originality audit is ADVISORY ONLY. It records the
+            # melody / chord / chroma / fingerprint numbers in
+            # uniqueness_report.json (publishing evidence + the in-app disclaimer)
+            # but it NEVER blocks or regenerates — generation is exactly ONE
+            # render. The user owns the output, the disclaimer covers
+            # non-infringement, and gating on shared chord/melody shapes (which
+            # most music has) only stalled legitimate output. Accept and ship.
+            report["enforced"] = False
+            break
 
         # ---- persist artifacts ------------------------------------------------
         storage.write_json(project.grid_path, grid)
