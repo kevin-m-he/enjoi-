@@ -43,7 +43,7 @@ export default function VocalScreen() {
   };
 
   if (!project) {
-    return <EmptyState title="No project open" hint="Start from the Search step." />;
+    return <EmptyState title="No project open" hint="Start from the Upload step." />;
   }
 
   return (

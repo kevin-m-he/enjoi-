@@ -78,7 +78,7 @@ export default function ArrangeScreen() {
   }, [duration, tickStep]);
 
   if (!project) {
-    return <EmptyState title="No project open" hint="Start from the Search step." />;
+    return <EmptyState title="No project open" hint="Start from the Upload step." />;
   }
 
   const placements = arrangement?.placements ?? [];

@@ -17,7 +17,7 @@ import type {
   VocalAnalysis,
 } from './lib/types';
 
-export const STEPS = ['Search', 'Analysis', 'Similarity', 'Vocal', 'Arrange', 'Mix & Export'] as const;
+export const STEPS = ['Upload', 'Analysis', 'Similarity', 'Vocal', 'Arrange', 'Mix & Export'] as const;
 
 export type ToastKind = 'info' | 'error' | 'success';
 export interface Toast {

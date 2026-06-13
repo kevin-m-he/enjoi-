@@ -106,10 +106,10 @@ export default function SearchScreen() {
       )}
 
       {/* existing projects */}
-      <Card title="…or pick up an existing project" subtitle="Pick up a song you started earlier">
+      <Card title="Uploaded projects" subtitle="Pick up a song you started earlier">
         {projects.length === 0 ? (
           <p className="text-sm font-medium text-prussian-900">
-            No projects yet — upload a song above to start your first one.
+            No projects yet — upload a reference track above to start your first one.
           </p>
         ) : (
           <ul className="divide-y-2 divide-ink/15">

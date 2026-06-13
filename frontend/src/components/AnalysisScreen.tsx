@@ -90,7 +90,7 @@ export default function AnalysisScreen() {
     return (
       <EmptyState
         title="No reference selected"
-        hint="Go back to Search and pick a video to analyze."
+        hint="Go back to Upload and choose a reference track."
       />
     );
   }
@@ -125,7 +125,7 @@ export default function AnalysisScreen() {
           {!job && (
             <EmptyState
               title="Waiting for analysis to start…"
-              hint="If nothing happens, retry from the Search step."
+              hint="If nothing happens, retry from the Upload step."
             />
           )}
         </>

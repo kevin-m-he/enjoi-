@@ -42,7 +42,7 @@ export default function MixExportScreen() {
   const rendering = job?.status === 'queued' || job?.status === 'running';
 
   if (!project) {
-    return <EmptyState title="No project open" hint="Start from the Search step." />;
+    return <EmptyState title="No project open" hint="Start from the Upload step." />;
   }
 
   const hasExports = !!project.exports?.length && !rendering;
