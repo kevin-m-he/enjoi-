@@ -19,11 +19,18 @@ body,
   min-height: 100%;
 }
 
+/* The cyan canvas lives on <html>, NOT on <body>. A background on body would
+   paint OVER body::before (the z-index:-1 bubble layer) and hide it; keeping
+   body transparent lets the bubbles sit above the cyan and below the cards. */
+html {
+  background-color: var(--cyan);
+}
+
 body {
   @apply text-ink antialiased;
   font-family: Inter, 'Segoe UI', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
   color: var(--ink);
-  background-color: var(--cyan); /* bright-cyan canvas — the app's main color */
+  background-color: transparent;
 }
 
 /* Animated rising pixel bubbles. They live on a fixed full-viewport layer
@@ -62,7 +69,7 @@ body::before {
     radial-gradient(circle at 165px 173px, rgba(255, 255, 255, 0.6) 0, rgba(255, 255, 255, 0.6) 2px, transparent 2px),
     /* bubble 7 — prussian ring (bottom-left, small) */
     radial-gradient(circle at 30px 178px, transparent 3px, rgba(27, 58, 91, 0.28) 3px, rgba(27, 58, 91, 0.28) 5px, transparent 5px);
-  animation: bubble-rise 9s linear infinite;
+  animation: bubble-rise 22s linear infinite;
   will-change: transform;
 }
 

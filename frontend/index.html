@@ -11,9 +11,11 @@
       rel="stylesheet"
     />
     <style>
-      /* avoid flash before the bundle loads — bright cyan canvas. Also keeps the
-         area below the app (when content is shorter than the page) cyan, not beige. */
-      html, body { background: #00E5FF; min-height: 100%; }
+      /* avoid flash before the bundle loads — bright cyan canvas. Cyan goes on
+         <html> only (not body) so the animated bubble layer (body::before) isn't
+         painted over. Keeps the page cyan even below short content. */
+      html { background: #00E5FF; }
+      html, body { min-height: 100%; }
     </style>
   </head>
   <body>
