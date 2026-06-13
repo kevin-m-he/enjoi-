@@ -76,10 +76,10 @@ module.exports = {
           '0%': { backgroundPosition: '0 0' },
           '100%': { backgroundPosition: '48px 0' },
         },
-        // pixel-art wave crest scrolling left→right: shift by one full tile width
+        // pixel sine wave scrolling left→right: shift by one full tile width
         'pixel-wave-march': {
           '0%': { backgroundPosition: '0 0' },
-          '100%': { backgroundPosition: '32px 0' },
+          '100%': { backgroundPosition: '64px 0' },
         },
         'foam-bob': {
           '0%, 100%': { transform: 'translateY(0)' },
@@ -88,7 +88,7 @@ module.exports = {
       },
       animation: {
         'wave-march': 'wave-march 1s linear infinite',
-        'pixel-wave-march': 'pixel-wave-march 0.7s steps(8) infinite',
+        'pixel-wave-march': 'pixel-wave-march 1s steps(16) infinite',
         'foam-bob': 'foam-bob 1.6s ease-in-out infinite',
       },
     },
