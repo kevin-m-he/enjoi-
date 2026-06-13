@@ -23,13 +23,27 @@ body {
   @apply text-ink antialiased;
   font-family: Inter, 'Segoe UI', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
   color: var(--ink);
-  /* bright-cyan canvas (the app's main color) sprinkled with tiny pixel-art
-     bubbles — each bubble is a hard-edged ring plus a single highlight pixel,
-     placed at irregular positions and varied sizes across a large 200px tile so
-     the texture reads as sporadic 8-bit bubbles, not a tidy grid. Low-opacity
-     ink / prussian / white keeps it subtle and text readable. Hard color stops
-     (no soft falloff) give the pixelated look. */
-  background-color: var(--cyan);
+  background-color: var(--cyan); /* bright-cyan canvas — the app's main color */
+}
+
+/* Animated rising pixel bubbles. They live on a fixed full-viewport layer
+   behind all content (z-index -1) and drift upward via a GPU-composited
+   transform, so the whole background isn't repainted each frame. Each bubble is
+   a hard-edged ring + a single highlight pixel, scattered at irregular positions
+   across a 200px tile so the texture reads as sporadic 8-bit bubbles. The layer
+   extends one extra tile below the viewport so the upward drift never gaps, and
+   one tile of travel (-200px) loops seamlessly. */
+body::before {
+  content: '';
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: -200px;
+  z-index: -1;
+  pointer-events: none;
+  background-repeat: repeat;
+  background-size: 200px 200px;
   background-image:
     /* bubble 1 — ink ring + white highlight pixel (top-left, medium) */
     radial-gradient(circle at 24px 30px, transparent 5px, rgba(11, 11, 12, 0.10) 5px, rgba(11, 11, 12, 0.10) 7px, transparent 7px),
@@ -48,8 +62,17 @@ body {
     radial-gradient(circle at 165px 173px, rgba(255, 255, 255, 0.26) 0, rgba(255, 255, 255, 0.26) 2px, transparent 2px),
     /* bubble 7 — prussian ring (bottom-left, small) */
     radial-gradient(circle at 30px 178px, transparent 3px, rgba(27, 58, 91, 0.13) 3px, rgba(27, 58, 91, 0.13) 5px, transparent 5px);
-  background-size: 200px 200px;
-  background-attachment: fixed;
+  animation: bubble-rise 18s linear infinite;
+  will-change: transform;
+}
+
+@keyframes bubble-rise {
+  from { transform: translateY(0); }
+  to { transform: translateY(-200px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::before { animation: none; }
 }
 
 /* ---------- display / wordmark helpers ---------- */
