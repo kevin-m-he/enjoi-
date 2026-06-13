@@ -47,6 +47,15 @@ DOUBLER_GAIN_DB = -6.0
 DUCK_MAX_DB = 1.5
 TP_CEILING_DB = -1.0
 
+# Gain-staging: the lead vocal must sit clearly ON TOP of the instrumental
+# (the #1 product complaint is drowned vocals). We measure both buses and set
+# the vocal level RELATIVE to the instrumental so the lead sits in a modern,
+# lead-vocal-forward window above it.
+VOCAL_OVER_INSTR_LU = 3.0      # target: lead vocal this many LU above the instrumental
+VOCAL_OVER_INSTR_MIN = 2.0     # never let the lead sit below +2 LU over the instrumental
+VOCAL_OVER_INSTR_MAX = 4.0     # nor more than +4 LU (stays musical, not shouty)
+VOCAL_STAGE_GAIN_LIMIT_DB = 18.0  # clamp the relative move so one bus can't run away
+
 # Preset flavors: small sensible variations per genre (spec 4.9).
 PRESETS: dict[str, dict] = {
     "pop": {
@@ -360,6 +369,43 @@ def _measure_lufs(x: np.ndarray, sr: int) -> float:
     return -0.691 + 10.0 * math.log10(msq)
 
 
+def _active_loudness(x: np.ndarray, sr: int) -> float:
+    """Loudness (LUFS, else RMS dBFS) measured over the bus's ACTIVE regions only.
+
+    For gain-staging we care about how loud the lead vocal is *while it is
+    sounding*, not its average over a track full of inter-phrase silence. We
+    gate to frames within 25 dB of the bus's loud peak, then measure that
+    subset's loudness. Returns -inf for an empty/silent bus.
+    """
+    if x.size == 0:
+        return float("-inf")
+    mono = np.mean(np.abs(x), axis=0) if x.ndim == 2 else np.abs(x)
+    env_db = _frame_rms_db(mono, ENV_HOP)
+    if env_db.size == 0:
+        return float("-inf")
+    peak = float(np.max(env_db))
+    if not math.isfinite(peak) or peak <= SILENCE_FLOOR_DB:
+        return float("-inf")
+    gate = max(peak - 25.0, SILENCE_FLOOR_DB)
+    active = env_db >= gate
+    if not np.any(active):
+        return float("-inf")
+    # expand the frame mask to samples and measure loudness of the active audio
+    n = x.shape[-1]
+    centers = np.arange(len(env_db), dtype=np.float64) * ENV_HOP + ENV_HOP / 2.0
+    samp_active = np.interp(
+        np.arange(n, dtype=np.float64), centers, active.astype(np.float64)
+    ) >= 0.5
+    if not np.any(samp_active):
+        return float("-inf")
+    sel = x[:, samp_active] if x.ndim == 2 else x[samp_active]
+    sel = np.ascontiguousarray(_ensure_stereo(sel))
+    lufs = _measure_lufs(sel, sr)
+    if math.isfinite(lufs):
+        return lufs
+    return core_audio.lin_to_db(core_audio.rms(sel))
+
+
 def _true_peak_db(x: np.ndarray, sr: int) -> float:
     from scipy.signal import resample_poly
 
@@ -547,6 +593,27 @@ def mix_and_master(project, arrangement: dict, grid: dict, preset: str,
         duck = _frames_gain_to_samples(-DUCK_MAX_DB * activity, ENV_HOP, n)
         inst = (inst * duck[None, :]).astype(np.float32)
     inst = np.nan_to_num(inst, nan=0.0, posinf=0.0, neginf=0.0)
+
+    # ---- gain-staging: put the lead vocal ON TOP of the instrumental --------
+    # Measure both buses' ACTIVE loudness and lift/trim the vocal bus so the
+    # lead sits +2..+4 LU above the instrumental (lead-vocal-forward balance).
+    # This is what stops the one-take from being drowned by the backing track.
+    if has_vocals:
+        progress(0.60, "Gain-staging: seating the vocal above the instrumental")
+        inst_loud = _active_loudness(inst, sr)
+        voc_loud = _active_loudness(vocal, sr)
+        if math.isfinite(inst_loud) and math.isfinite(voc_loud):
+            desired_voc = inst_loud + VOCAL_OVER_INSTR_LU
+            stage_db = desired_voc - voc_loud
+            stage_db = float(np.clip(
+                stage_db, -VOCAL_STAGE_GAIN_LIMIT_DB, VOCAL_STAGE_GAIN_LIMIT_DB
+            ))
+            vocal = (vocal * core_audio.db_to_lin(stage_db)).astype(np.float32)
+            log.debug(
+                "gain-stage: inst=%.1f LU voc=%.1f LU -> +%.1f dB (target +%.1f LU)",
+                inst_loud, voc_loud, stage_db, VOCAL_OVER_INSTR_LU,
+            )
+        vocal = np.nan_to_num(vocal, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
 
     # ---- stems (post-bus, pre-master-sum) -----------------------------------
     progress(0.62, "Writing stems")

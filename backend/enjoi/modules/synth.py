@@ -1,9 +1,26 @@
 """Procedural instrumental engine — the guaranteed fallback when MusicGen is absent.
 
 Pure numpy + scipy.signal synthesis (no ML dependencies). Renders a complete,
-listenable instrumental from a generation plan (see docs/API_CONTRACT.md):
-drums (kick/snare/hats), bass, chords/keys, optional pad, and a seeded lead
-melody on chorus sections.
+genre-appropriate, radio-style instrumental from a generation plan (see
+docs/API_CONTRACT.md): a real-ish drum kit, bass / sub / 808, plucked acoustic
+& electric guitars (Karplus-Strong), pianos, electric pianos with tine
+character, organ, pads, strings, synth keys/plucks/leads, brass and bells —
+selected and voiced per the plan's ``genre`` and ``instrument_palette`` so the
+output clearly belongs to the reference's genre and emotional feel rather than
+sounding like generic "video-game" synth music.
+
+Design goals:
+* REALISM — layered oscillators, per-instrument ADSR, subtle detune/chorus,
+  gentle saturation, body/noise components (Karplus-Strong strings, tine
+  electric piano, real-ish drums).
+* GENRE MATCHING — ``plan["genre"]`` + ``plan["instrument_palette"]`` pick the
+  timbres, groove and arrangement density.
+* MIX BALANCE — hi-hats/cymbals are among the QUIETEST elements; kick + bass are
+  the foundation; the vocal range (~300 Hz–4 kHz) is left uncluttered; one bass
+  element owns the low end; tasteful panning (hats/keys off-centre,
+  kick/bass/snare centred).
+* 432 Hz TUNING — every note→frequency conversion goes through
+  ``config.midi_to_hz`` (A4 / MIDI 69 → 432.0 Hz).
 
 Reproducibility: every musical choice derives from ``random.Random`` instances
 seeded by ``plan["seed"]``. Two optional plan keys let the orchestrator
@@ -19,6 +36,7 @@ Public API:
     render_section(plan, section, sr=44100) -> np.ndarray (2, n)
     render_song(plan, progress)             -> np.ndarray (2, n)
     scale_midi_notes(tonic, mode)           -> list[int]   (7 MIDI notes)
+    NOTE_TO_PC                              -> dict (imported by unique.py)
 """
 from __future__ import annotations
 
@@ -95,6 +113,15 @@ _LEAD_RHYTHMS_4 = [
 
 
 # ---------------------------------------------------------------------------
+# Frequency (432 Hz tuning) — ALL note→Hz conversions go through here.
+# ---------------------------------------------------------------------------
+
+def _hz(m: float) -> float:
+    """MIDI note → frequency at the project tuning (A4/MIDI 69 → 432 Hz)."""
+    return config.midi_to_hz(float(m))
+
+
+# ---------------------------------------------------------------------------
 # Scale / chord helpers
 # ---------------------------------------------------------------------------
 
@@ -119,8 +146,45 @@ def _diatonic_triad(scale: list[int], degree: int) -> list[int]:
     return out
 
 
-def _midi_hz(m: float) -> float:
-    return float(440.0 * 2.0 ** ((m - 69) / 12.0))
+# ---------------------------------------------------------------------------
+# Genre → engine voicing.
+#
+# A genre profile tells the renderer HOW each role should sound: drum-kit
+# flavour, bass timbre, default keys voicing, and a per-bus level trim so the
+# mix sits in the right pocket for the style. Roles in plan["instrument_palette"]
+# are mapped onto concrete synth voices.
+# ---------------------------------------------------------------------------
+
+_GENRE_VOICE = {
+    "pop":     {"kit": "acoustic", "bass": "electric", "keys": "piano",  "warmth": 0.45},
+    "rock":    {"kit": "rock",     "bass": "pick",     "keys": "piano",  "warmth": 0.35},
+    "metal":   {"kit": "rock",     "bass": "pick",     "keys": "piano",  "warmth": 0.20},
+    "country": {"kit": "acoustic", "bass": "electric", "keys": "piano",  "warmth": 0.55},
+    "folk":    {"kit": "brush",    "bass": "upright",  "keys": "piano",  "warmth": 0.6},
+    "acoustic":{"kit": "brush",    "bass": "upright",  "keys": "piano",  "warmth": 0.6},
+    "hip hop": {"kit": "trap",     "bass": "808",      "keys": "epiano", "warmth": 0.5},
+    "trap":    {"kit": "trap",     "bass": "808",      "keys": "synth",  "warmth": 0.4},
+    "r&b":     {"kit": "soft",     "bass": "electric", "keys": "epiano", "warmth": 0.6},
+    "edm":     {"kit": "edm",      "bass": "sub",      "keys": "synth",  "warmth": 0.3},
+    "dance":   {"kit": "edm",      "bass": "sub",      "keys": "synth",  "warmth": 0.3},
+    "house":   {"kit": "edm",      "bass": "sub",      "keys": "synth",  "warmth": 0.35},
+    "lofi":    {"kit": "lofi",     "bass": "electric", "keys": "epiano", "warmth": 0.7},
+    "jazz":    {"kit": "brush",    "bass": "upright",  "keys": "piano",  "warmth": 0.55},
+    "blues":   {"kit": "brush",    "bass": "upright",  "keys": "piano",  "warmth": 0.5},
+    "latin":   {"kit": "acoustic", "bass": "electric", "keys": "piano",  "warmth": 0.5},
+    "k-pop":   {"kit": "edm",      "bass": "sub",      "keys": "synth",  "warmth": 0.35},
+    "classical": {"kit": "brush",  "bass": "upright",  "keys": "piano",  "warmth": 0.5},
+}
+_DEFAULT_VOICE = _GENRE_VOICE["pop"]
+
+# Which palette roles drive which synth voice. (Several roles share a generator
+# but with different parameters, set in _render_section_internal.)
+_GUITAR_ROLES = {"acoustic_guitar", "electric_guitar", "dist_guitar", "pedal_steel"}
+_KEYS_ROLES = {"piano", "epiano", "organ", "synth_keys", "keys", "chords", "melodic"}
+_PAD_ROLES = {"pad", "pads", "strings"}
+_PLUCK_ROLES = {"pluck", "arp", "bell"}
+_LEAD_ROLES = {"lead", "synth_lead", "brass"}
+_LOW_ROLES = {"bass", "sub_bass", "808"}
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +193,8 @@ def _midi_hz(m: float) -> float:
 
 class _Ctx:
     __slots__ = ("bpm", "spb", "bpb", "scale", "seed", "palette", "swing",
-                 "pattern", "structure", "energies", "minorish")
+                 "pattern", "structure", "energies", "minorish", "genre",
+                 "voice", "density")
 
 
 def _ctx(plan: dict) -> _Ctx:
@@ -149,9 +214,9 @@ def _ctx(plan: dict) -> _Ctx:
     c.minorish = mode.strip().lower() in _MINORISH_MODES or "min" in mode.lower()
     c.seed = int(plan.get("seed") or 0)
     raw_palette = plan.get("instrument_palette") or []
-    c.palette = {str(p).strip().lower() for p in raw_palette}
+    c.palette = [str(p).strip().lower() for p in raw_palette]
     if not c.palette:
-        c.palette = {"drums", "bass", "piano"}
+        c.palette = ["drums", "bass", "piano"]
     groove = plan.get("groove") or {}
     try:
         c.swing = float(groove.get("swing") or 0.0)
@@ -165,6 +230,12 @@ def _ctx(plan: dict) -> _Ctx:
         for s in structure
     ]
     c.energies = list(plan.get("energy_targets") or [])
+    c.genre = str(plan.get("genre") or "pop").strip().lower()
+    c.voice = _GENRE_VOICE.get(c.genre, _DEFAULT_VOICE)
+    try:
+        c.density = float(plan.get("genre_density") or 0.55)
+    except (TypeError, ValueError):
+        c.density = 0.55
     return c
 
 
@@ -241,6 +312,23 @@ def _bandpass(x: np.ndarray, lo: float, hi: float, sr: int) -> np.ndarray:
     return lfilter(b, a, x)
 
 
+def _peak_eq(x: np.ndarray, freq: float, gain_db: float, q: float, sr: int) -> np.ndarray:
+    """A single biquad peaking-EQ band (used for body resonances)."""
+    from scipy.signal import lfilter
+
+    w0 = 2.0 * np.pi * min(max(freq, 30.0), 0.45 * sr) / sr
+    a = 10.0 ** (gain_db / 40.0)
+    alpha = np.sin(w0) / (2.0 * max(q, 1e-3))
+    cw = np.cos(w0)
+    b0 = 1 + alpha * a
+    b1 = -2 * cw
+    b2 = 1 - alpha * a
+    a0 = 1 + alpha / a
+    a1 = -2 * cw
+    a2 = 1 - alpha / a
+    return lfilter([b0 / a0, b1 / a0, b2 / a0], [1.0, a1 / a0, a2 / a0], x)
+
+
 def _adsr(n: int, sr: int, attack: float, decay: float, sustain: float,
           release: float) -> np.ndarray:
     n = max(n, 1)
@@ -273,6 +361,13 @@ def _saw_detuned(freq: float, n: int, sr: int, detune: float = 0.003,
     return out / max(voices, 1)
 
 
+def _saturate(x: np.ndarray, drive: float = 1.0) -> np.ndarray:
+    """Gentle tanh saturation for analog-ish warmth / glue."""
+    if drive <= 0:
+        return x
+    return np.tanh(drive * x) / np.tanh(drive) if drive != 1.0 else np.tanh(x)
+
+
 def _add(bus: np.ndarray, start: int, sig: np.ndarray) -> None:
     if start >= len(bus) or sig.size == 0:
         return
@@ -284,10 +379,58 @@ def _add(bus: np.ndarray, start: int, sig: np.ndarray) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Drum kit one-shots (deterministic, cached per sample rate)
+# Karplus-Strong plucked string — the realistic basis for guitars / plucks.
 # ---------------------------------------------------------------------------
 
-_KIT_CACHE: dict[int, dict] = {}
+def _karplus_strong(freq: float, dur_sec: float, sr: int, *, damping: float = 0.498,
+                    pick: float = 0.5, body: bool = True, brightness: float = 1.0,
+                    seed: int = 0) -> np.ndarray:
+    """A plucked string via the extended Karplus-Strong algorithm.
+
+    ``damping`` ~0.5 → bright/long sustain; lower → duller/shorter. ``pick``
+    blends the initial excitation between noise (1.0) and a softer filtered burst
+    (0.0). ``body`` adds resonant body formants. Vectorized inner loop is a
+    fixed-length IIR comb realized with scipy's lfilter for speed.
+    """
+    from scipy.signal import lfilter
+
+    n = max(int(dur_sec * sr), 64)
+    p = max(int(round(sr / max(freq, 20.0))), 2)
+    rng = np.random.default_rng((seed ^ int(freq)) & 0x7FFFFFFF)
+    burst = rng.standard_normal(p)
+    if pick < 1.0:
+        # Soften the pick: low-pass the excitation a touch (rounder attack).
+        burst = _lowpass(burst, 2000.0 + 6000.0 * pick, sr)
+    burst *= np.hanning(p) ** 0.25
+    x = np.zeros(n)
+    x[:p] = burst[:p]
+    # Feedback comb with a 2-tap averaging lowpass in the loop (string damping).
+    # y[i] = x[i] + damping*(y[i-p] + y[i-p-1]) ; realize via lfilter.
+    a = np.zeros(p + 2)
+    a[0] = 1.0
+    a[p] = -damping
+    a[p + 1] = -damping
+    y = lfilter([1.0], a, x)
+    # Brightness / decay shaping and a soft attack.
+    t = np.arange(n) / sr
+    y *= np.exp(-t * (2.2 / max(dur_sec, 0.2)))
+    if brightness < 1.0:
+        y = _lowpass(y, 2000.0 + 6000.0 * brightness, sr)
+    if body:
+        # Acoustic-guitar-ish body resonances.
+        y = _peak_eq(y, 100.0, 4.0, 1.2, sr)
+        y = _peak_eq(y, 215.0, 3.0, 1.5, sr)
+    env = _adsr(n, sr, 0.002, 0.05, 0.7, min(0.15, 0.4 * dur_sec))
+    out = y * env
+    m = float(np.max(np.abs(out)))
+    return out / m if m > 1e-9 else out
+
+
+# ---------------------------------------------------------------------------
+# Drum kit one-shots (deterministic, cached per (sr, kit))
+# ---------------------------------------------------------------------------
+
+_KIT_CACHE: dict[tuple, dict] = {}
 
 
 def _norm1(x: np.ndarray) -> np.ndarray:
@@ -295,41 +438,81 @@ def _norm1(x: np.ndarray) -> np.ndarray:
     return x / p if p > 1e-9 else x
 
 
-def _build_kit(sr: int) -> dict:
-    if sr in _KIT_CACHE:
-        return _KIT_CACHE[sr]
-    rng = np.random.default_rng(0xE17501)
-
-    # Kick: decaying sine sweep 150 -> 52 Hz + click transient.
-    n = int(0.32 * sr)
-    t = np.arange(n) / sr
-    f = 52.0 + 98.0 * np.exp(-t * 30.0)
-    kick = np.sin(2.0 * np.pi * np.cumsum(f) / sr) * np.exp(-t * 14.0)
+def _make_kick(sr: int, kit: str, rng) -> np.ndarray:
+    if kit in ("trap", "edm"):
+        n = int(0.5 * sr); t = np.arange(n) / sr
+        f = 45.0 + 95.0 * np.exp(-t * 22.0)          # long, deep 808-ish boom
+        k = np.sin(2.0 * np.pi * np.cumsum(f) / sr) * np.exp(-t * (5.0 if kit == "trap" else 9.0))
+    elif kit == "rock":
+        n = int(0.3 * sr); t = np.arange(n) / sr
+        f = 55.0 + 90.0 * np.exp(-t * 34.0)
+        k = np.sin(2.0 * np.pi * np.cumsum(f) / sr) * np.exp(-t * 16.0)
+    else:  # acoustic / soft / brush / lofi
+        n = int(0.34 * sr); t = np.arange(n) / sr
+        f = 52.0 + 96.0 * np.exp(-t * 30.0)
+        k = np.sin(2.0 * np.pi * np.cumsum(f) / sr) * np.exp(-t * 14.0)
     cn = max(int(0.004 * sr), 8)
     click = rng.standard_normal(cn) * np.linspace(1.0, 0.0, cn)
-    kick[:cn] += 0.45 * np.diff(np.concatenate([[0.0], click]))
-    kick = _norm1(kick)
+    click_amt = 0.25 if kit in ("trap", "edm") else 0.45
+    k[:cn] += click_amt * np.diff(np.concatenate([[0.0], click]))
+    if kit == "lofi":
+        k = _lowpass(k, 4500.0, sr)
+    return _norm1(k)
 
-    # Snare: filtered noise burst + 186 Hz tone.
-    n = int(0.22 * sr)
-    t = np.arange(n) / sr
+
+def _make_snare(sr: int, kit: str, rng) -> np.ndarray:
+    if kit == "brush":  # soft brushed snare for jazz/folk/acoustic
+        n = int(0.18 * sr); t = np.arange(n) / sr
+        noise = _bandpass(rng.standard_normal(n), 1200.0, 6000.0, sr) * np.exp(-t * 22.0)
+        tone = np.sin(2.0 * np.pi * 210.0 * t) * np.exp(-t * 40.0)
+        return _norm1(0.9 * _norm1(noise) + 0.25 * tone)
+    if kit in ("trap", "edm"):  # tight, snappy clap-ish snare
+        n = int(0.18 * sr); t = np.arange(n) / sr
+        noise = _bandpass(rng.standard_normal(n), 900.0, 9000.0, sr) * np.exp(-t * 26.0)
+        tone = np.sin(2.0 * np.pi * 200.0 * t) * np.exp(-t * 40.0)
+        return _norm1(0.95 * _norm1(noise) + 0.35 * tone)
+    if kit == "soft":  # r&b / soft snare
+        n = int(0.2 * sr); t = np.arange(n) / sr
+        noise = _bandpass(rng.standard_normal(n), 700.0, 6500.0, sr) * np.exp(-t * 20.0)
+        tone = np.sin(2.0 * np.pi * 180.0 * t) * np.exp(-t * 34.0)
+        return _norm1(0.8 * _norm1(noise) + 0.45 * tone)
+    # rock / acoustic / pop / lofi — full backbeat snare with body
+    n = int(0.22 * sr); t = np.arange(n) / sr
     noise = _bandpass(rng.standard_normal(n), 600.0, 7800.0, sr) * np.exp(-t * 18.0)
     tone = np.sin(2.0 * np.pi * 186.0 * t) * np.exp(-t * 30.0)
-    snare = _norm1(0.85 * _norm1(noise) + 0.5 * tone)
+    snare = 0.85 * _norm1(noise) + 0.5 * tone
+    if kit == "lofi":
+        snare = _lowpass(snare, 6000.0, sr)
+    return _norm1(snare)
 
-    # Hi-hats: highpassed noise, short closed / longer open.
-    n = int(0.09 * sr)
-    t = np.arange(n) / sr
-    hat_c = _norm1(_highpass(rng.standard_normal(n), 7200.0, sr, order=4)
-                   * np.exp(-t * 60.0))
-    n = int(0.45 * sr)
-    t = np.arange(n) / sr
-    hat_o = _norm1(_highpass(rng.standard_normal(n), 6800.0, sr, order=4)
-                   * np.exp(-t * 7.0))
 
-    kit = {"kick": kick, "snare": snare, "hat_c": hat_c, "hat_o": hat_o}
-    _KIT_CACHE[sr] = kit
-    return kit
+def _make_hats(sr: int, kit: str, rng) -> tuple[np.ndarray, np.ndarray]:
+    hp = 8000.0 if kit in ("trap", "edm") else 7200.0
+    n = int(0.07 * sr); t = np.arange(n) / sr
+    decay = 80.0 if kit in ("trap", "edm") else 60.0
+    hat_c = _norm1(_highpass(rng.standard_normal(n), hp, sr, order=4) * np.exp(-t * decay))
+    n = int(0.4 * sr); t = np.arange(n) / sr
+    hat_o = _norm1(_highpass(rng.standard_normal(n), hp - 400.0, sr, order=4) * np.exp(-t * 7.0))
+    if kit == "lofi":
+        hat_c = _lowpass(hat_c, 11000.0, sr)
+        hat_o = _lowpass(hat_o, 11000.0, sr)
+    return hat_c, hat_o
+
+
+def _build_kit(sr: int, kit: str = "acoustic") -> dict:
+    key = (sr, kit)
+    if key in _KIT_CACHE:
+        return _KIT_CACHE[key]
+    rng = np.random.default_rng(0xE17501 ^ hash(kit) & 0xFFFFFF)
+    hat_c, hat_o = _make_hats(sr, kit, rng)
+    kit_d = {
+        "kick": _make_kick(sr, kit, rng),
+        "snare": _make_snare(sr, kit, rng),
+        "hat_c": hat_c,
+        "hat_o": hat_o,
+    }
+    _KIT_CACHE[key] = kit_d
+    return kit_d
 
 
 # ---------------------------------------------------------------------------
@@ -421,44 +604,189 @@ def _drum_events(pattern: str, bpb: int, bars: int, energy: float, swing: float,
     return ev
 
 
-def _bass_note(freq: float, dur_sec: float, sr: int, energy: float) -> np.ndarray:
+# ---------------------------------------------------------------------------
+# Instrument voices
+# ---------------------------------------------------------------------------
+
+def _bass_note(freq: float, dur_sec: float, sr: int, energy: float,
+               kind: str = "electric") -> np.ndarray:
+    """Foundation bass. ``kind`` ∈ electric|pick|upright|sub|808."""
     n = max(int(dur_sec * sr), 32)
     t = np.arange(n) / sr
     sub = np.sin(2.0 * np.pi * freq * t)
-    saw = 2.0 * ((freq * t) % 1.0) - 1.0
-    x = 0.85 * sub + 0.22 * saw
-    x = _lowpass(x, 180.0 + 520.0 * energy, sr)
-    return x * _adsr(n, sr, 0.006, 0.08, 0.8, 0.03)
+    if kind == "sub":
+        x = sub + 0.06 * np.sin(2.0 * np.pi * 2.0 * freq * t)
+        x = _lowpass(x, 140.0, sr)
+        env = _adsr(n, sr, 0.008, 0.06, 0.92, 0.04)
+    elif kind == "808":
+        # Pitch-gliding 808 with long decay (hip hop / trap).
+        gl = freq * (1.0 + 0.4 * np.exp(-t * 30.0))   # slight pitch drop at attack
+        x = np.sin(2.0 * np.pi * np.cumsum(gl) / sr)
+        x = _saturate(x * 1.4, 1.4)
+        x = _lowpass(x, 200.0 + 200.0 * energy, sr)
+        env = _adsr(n, sr, 0.004, 0.4, 0.6, min(0.5, 0.6 * dur_sec))
+    elif kind == "upright":
+        saw = 2.0 * ((freq * t) % 1.0) - 1.0
+        x = 0.8 * sub + 0.18 * saw
+        x = _lowpass(x, 350.0 + 200.0 * energy, sr)
+        x = _peak_eq(x, 120.0, 3.0, 1.0, sr)          # woody body
+        env = _adsr(n, sr, 0.01, 0.12, 0.55, 0.05)
+    elif kind == "pick":
+        saw = 2.0 * ((freq * t) % 1.0) - 1.0
+        sq = np.sign(np.sin(2.0 * np.pi * freq * t))
+        x = 0.7 * sub + 0.3 * saw + 0.1 * sq
+        x = _saturate(x * 1.2, 1.2)
+        x = _lowpass(x, 700.0 + 900.0 * energy, sr)   # picked = brighter
+        env = _adsr(n, sr, 0.004, 0.06, 0.75, 0.03)
+    else:  # electric (fingered)
+        saw = 2.0 * ((freq * t) % 1.0) - 1.0
+        x = 0.85 * sub + 0.22 * saw
+        x = _lowpass(x, 180.0 + 520.0 * energy, sr)
+        env = _adsr(n, sr, 0.006, 0.08, 0.8, 0.03)
+    return x * env
 
 
-def _keys_chord(midis: list[int], dur_sec: float, sr: int, energy: float) -> np.ndarray:
+def _piano_note(midi: int, dur_sec: float, sr: int, energy: float) -> np.ndarray:
+    """Acoustic-piano-ish voice: a few inharmonic partials + hammer thump."""
+    n = max(int(dur_sec * sr), 64)
+    t = np.arange(n) / sr
+    f0 = _hz(midi)
+    x = np.zeros(n)
+    # Partials with slight inharmonicity and per-partial decay (bright→dull).
+    for k, amp in ((1, 1.0), (2, 0.5), (3, 0.28), (4, 0.16), (6, 0.08)):
+        inh = 1.0 + 0.0006 * k * k
+        x += amp * np.sin(2.0 * np.pi * f0 * k * inh * t) * np.exp(-t * (1.6 + 0.5 * k))
+    # Hammer thump.
+    x[: max(int(0.004 * sr), 8)] += 0.3 * np.random.default_rng(midi).standard_normal(
+        max(int(0.004 * sr), 8))
+    x = _lowpass(x, 4000.0 + 4000.0 * energy, sr)
+    env = _adsr(n, sr, 0.003, 0.4, 0.45, min(0.25, 0.4 * dur_sec))
+    return x * env
+
+
+def _epiano_note(midi: int, dur_sec: float, sr: int, energy: float) -> np.ndarray:
+    """Electric-piano (Rhodes-ish): sine fundamental + bell-like tine FM."""
+    n = max(int(dur_sec * sr), 64)
+    t = np.arange(n) / sr
+    f0 = _hz(midi)
+    tine_env = np.exp(-t * 18.0)                       # bright tine attack
+    mod = 2.0 * tine_env * np.sin(2.0 * np.pi * f0 * 2.0 * t)
+    x = np.sin(2.0 * np.pi * f0 * t + mod) * np.exp(-t * 1.4)
+    x += 0.25 * np.sin(2.0 * np.pi * f0 * 3.0 * t) * tine_env
+    x = _saturate(x * 1.1, 1.1)
+    env = _adsr(n, sr, 0.003, 0.25, 0.55, min(0.2, 0.4 * dur_sec))
+    return x * env
+
+
+def _organ_note(midi: int, dur_sec: float, sr: int) -> np.ndarray:
+    """Drawbar organ: stacked octave/fifth sines, fast attack, slight vibrato."""
+    n = max(int(dur_sec * sr), 64)
+    t = np.arange(n) / sr
+    f0 = _hz(midi)
+    vib = 1.0 + 0.004 * np.sin(2.0 * np.pi * 6.0 * t)
+    x = np.zeros(n)
+    for mult, amp in ((1.0, 1.0), (2.0, 0.6), (3.0, 0.4), (4.0, 0.25), (0.5, 0.3)):
+        x += amp * np.sin(2.0 * np.pi * f0 * mult * vib * t)
+    env = _adsr(n, sr, 0.006, 0.05, 0.95, 0.06)
+    return x * env
+
+
+def _keys_chord(midis: list[int], dur_sec: float, sr: int, energy: float,
+                voice: str = "piano") -> np.ndarray:
+    """Render a chord with the chosen keyboard voice."""
+    n = max(int(dur_sec * sr), 64)
+    x = np.zeros(n)
+    if voice == "piano":
+        for m in midis:
+            x[: len(x)] += _piano_note(m, dur_sec, sr, energy)[: n]
+    elif voice == "epiano":
+        for m in midis:
+            x[: len(x)] += _epiano_note(m, dur_sec, sr, energy)[: n]
+    elif voice == "organ":
+        for m in midis:
+            x[: len(x)] += _organ_note(m, dur_sec, sr)[: n]
+    else:  # synth (detuned saw stack, lowpassed — clean modern keys)
+        for m in midis:
+            x += _saw_detuned(_hz(m), n, sr, detune=0.004, voices=2)[: n]
+        x = _lowpass(x, 900.0 + 3000.0 * energy, sr)
+        x *= _adsr(n, sr, 0.008, 0.2, 0.6, 0.08)
+    return x / max(len(midis), 1)
+
+
+def _guitar_chord(midis: list[int], dur_sec: float, sr: int, *, kind: str,
+                  seed: int) -> np.ndarray:
+    """A strummed/plucked guitar chord built from Karplus-Strong strings."""
+    n = max(int(dur_sec * sr), 64)
+    out = np.zeros(n)
+    bright = {"acoustic_guitar": 0.85, "electric_guitar": 0.7,
+              "dist_guitar": 0.9, "pedal_steel": 0.8}.get(kind, 0.8)
+    body = kind in ("acoustic_guitar", "pedal_steel")
+    pick = 0.7 if kind == "acoustic_guitar" else 0.5
+    strum = int(0.012 * sr)                             # spread strings in time
+    for i, m in enumerate(sorted(midis)):
+        s = _karplus_strong(_hz(m), dur_sec, sr, damping=0.495, pick=pick,
+                            body=body, brightness=bright, seed=seed + i)
+        _add(out, i * strum, s[: n - i * strum] if i * strum < n else s[:0])
+    if kind == "dist_guitar":
+        out = _saturate(out * 3.0, 3.0)                 # overdrive
+        out = _lowpass(out, 5500.0, sr)
+    elif kind == "electric_guitar":
+        out = _saturate(out * 1.4, 1.4)
+    return out
+
+
+def _pad_chord(midis: list[int], dur_sec: float, sr: int, *, strings: bool = False) -> np.ndarray:
     n = max(int(dur_sec * sr), 64)
     x = np.zeros(n)
     for m in midis:
-        x += _saw_detuned(_midi_hz(m), n, sr, detune=0.0035, voices=2)
+        x += _saw_detuned(_hz(m), n, sr, detune=0.007, voices=3)
     x /= max(len(midis), 1)
-    x = _lowpass(x, 800.0 + 2600.0 * energy, sr)
-    return x * _adsr(n, sr, 0.012, 0.25, 0.55, 0.08)
-
-
-def _pad_chord(midis: list[int], dur_sec: float, sr: int) -> np.ndarray:
-    n = max(int(dur_sec * sr), 64)
-    x = np.zeros(n)
-    for m in midis:
-        x += _saw_detuned(_midi_hz(m), n, sr, detune=0.006, voices=3)
-    x /= max(len(midis), 1)
-    x = _lowpass(x, 900.0, sr)
+    if strings:
+        # Bowed-strings shimmer: slow vibrato + brighter top.
+        t = np.arange(n) / sr
+        x *= (1.0 + 0.02 * np.sin(2.0 * np.pi * 5.0 * t))
+        x = _lowpass(x, 3200.0, sr)
+        x = _peak_eq(x, 1500.0, 2.0, 1.0, sr)
+    else:
+        x = _lowpass(x, 1100.0, sr)
     attack = min(1.2, 0.35 * dur_sec)
-    return x * _adsr(n, sr, attack, 0.3, 0.85, min(0.5, 0.25 * dur_sec))
+    return x * _adsr(n, sr, attack, 0.3, 0.85, min(0.6, 0.3 * dur_sec))
 
 
-def _lead_note(midi: float, dur_sec: float, sr: int) -> np.ndarray:
+def _pluck_note(midi: int, dur_sec: float, sr: int, *, kind: str, seed: int) -> np.ndarray:
+    """Short plucky synth / bell for EDM/pop plucks and bells."""
     n = max(int(dur_sec * sr), 32)
     t = np.arange(n) / sr
-    f0 = _midi_hz(midi)
+    f0 = _hz(midi)
+    if kind == "bell":
+        x = (np.sin(2.0 * np.pi * f0 * t) * np.exp(-t * 3.0)
+             + 0.5 * np.sin(2.0 * np.pi * f0 * 2.76 * t) * np.exp(-t * 5.0)
+             + 0.3 * np.sin(2.0 * np.pi * f0 * 5.4 * t) * np.exp(-t * 8.0))
+        env = _adsr(n, sr, 0.001, 0.2, 0.0, min(0.4, dur_sec))
+    else:  # synth pluck (Karplus + filter)
+        x = _karplus_strong(f0, dur_sec, sr, damping=0.49, pick=0.4, body=False,
+                            brightness=0.7, seed=seed)
+        x = _lowpass(x, 4000.0, sr)
+        env = _adsr(n, sr, 0.002, 0.08, 0.25, min(0.2, dur_sec))
+    return x[: n] * env
+
+
+def _lead_note(midi: float, dur_sec: float, sr: int, *, kind: str = "lead") -> np.ndarray:
+    n = max(int(dur_sec * sr), 32)
+    t = np.arange(n) / sr
+    f0 = _hz(midi)
     vib = 1.0 + 0.007 * np.sin(2.0 * np.pi * 5.3 * t) * np.clip((t - 0.12) / 0.1, 0.0, 1.0)
     ph = 2.0 * np.pi * np.cumsum(f0 * vib) / sr
-    x = np.sin(ph) + 0.35 * np.sin(2.0 * ph) + 0.12 * np.sin(3.0 * ph)
+    if kind == "synth_lead":
+        x = (2.0 * ((f0 * np.cumsum(vib) / sr) % 1.0) - 1.0)   # saw lead
+        x = _lowpass(x, 3500.0, sr)
+        x = _saturate(x * 1.5, 1.5)
+    elif kind == "brass":
+        x = np.sin(ph) + 0.5 * np.sin(2.0 * ph) + 0.3 * np.sin(3.0 * ph) + 0.15 * np.sin(4.0 * ph)
+        x = _saturate(x * 1.3, 1.3)
+        x = _peak_eq(x, 1200.0, 3.0, 1.0, sr)
+    else:  # sine-ish lead with light harmonics
+        x = np.sin(ph) + 0.35 * np.sin(2.0 * ph) + 0.12 * np.sin(3.0 * ph)
     return x * _adsr(n, sr, 0.012, 0.1, 0.75, 0.05)
 
 
@@ -469,7 +797,6 @@ def _lead_note(midi: float, dur_sec: float, sr: int) -> np.ndarray:
 def _lead_rhythms(bpb: int) -> list[list[float]]:
     if bpb == 4:
         return _LEAD_RHYTHMS_4
-    # Generic motifs for other meters: quarters / 8th pairs filling the bar.
     quarters = [1.0] * bpb
     eighths_end = [1.0] * (bpb - 1) + [0.5, 0.5]
     syncopated = [1.5, 0.5] + [1.0] * (bpb - 2) if bpb >= 2 else quarters
@@ -510,7 +837,6 @@ def _chorus_melody(plan: dict, ctx: _Ctx) -> tuple[list[tuple], int]:
                     else rng.choice([-2, -1, -1, 0, 1, 1, 2, 3, -3]))
             idx = min(max(idx + step, lo), hi)
             if j == 0 or j == len(rhythm) - 1:
-                # Snap phrase boundaries to the bar's chord tones.
                 if ext[idx] % 12 not in chord_pcs:
                     for off in (1, -1, 2, -2, 3, -3):
                         k = idx + off
@@ -518,7 +844,7 @@ def _chorus_melody(plan: dict, ctx: _Ctx) -> tuple[list[tuple], int]:
                             idx = k
                             break
             if 0 < j < len(rhythm) - 1 and rng.random() < 0.1:
-                pos += d  # breathe: occasional rest mid-phrase
+                pos += d
                 continue
             notes.append((pos, d * 0.95, ext[idx]))
             pos += d
@@ -531,9 +857,6 @@ def _chorus_melody(plan: dict, ctx: _Ctx) -> tuple[list[tuple], int]:
 
 _TAIL_SEC = 0.8
 
-_KEYS_ALIASES = {"piano", "keys", "chords", "guitar", "melodic", "synth", "epiano", "organ"}
-_PAD_ALIASES = {"pad", "pads", "strings"}
-
 
 def _haas(sig: np.ndarray, delay_sec: float, sr: int) -> np.ndarray:
     d = max(int(delay_sec * sr), 1)
@@ -542,8 +865,67 @@ def _haas(sig: np.ndarray, delay_sec: float, sr: int) -> np.ndarray:
     return np.concatenate([np.zeros(d), sig[:-d]])
 
 
-def _render_section_internal(plan: dict, section: dict, sr: int) -> np.ndarray:
-    """Render one section + release tail → float64 (2, n_section + tail)."""
+def _palette_voices(ctx: _Ctx) -> dict:
+    """Resolve the abstract palette roles into concrete engine flags/voices."""
+    pal = set(ctx.palette)
+    v = {
+        "drums": "drums" in pal,
+        "low": None,          # bass voice kind, or None
+        "keys": None,         # keyboard voice (piano/epiano/organ/synth), or None
+        "guitar": None,       # guitar role to render as chords, or None
+        "pad": False,
+        "strings": False,
+        "pluck": None,        # pluck/bell role
+        "lead": None,         # lead role
+    }
+    # Low end — exactly one source (keep the low end clean).
+    if "808" in pal:
+        v["low"] = "808"
+    elif "sub_bass" in pal:
+        v["low"] = "sub"
+    elif "bass" in pal:
+        v["low"] = ctx.voice["bass"]
+    # Keys — prefer explicit role, else the genre's default keyboard.
+    if "epiano" in pal:
+        v["keys"] = "epiano"
+    elif "organ" in pal:
+        v["keys"] = "organ"
+    elif "synth_keys" in pal:
+        v["keys"] = "synth"
+    elif "piano" in pal or (pal & {"keys", "chords", "melodic"}):
+        v["keys"] = ctx.voice["keys"]
+    # Guitar — pick the most prominent guitar role present.
+    for role in ("dist_guitar", "electric_guitar", "acoustic_guitar", "pedal_steel"):
+        if role in pal:
+            v["guitar"] = role
+            break
+    # Pads / strings.
+    if "strings" in pal:
+        v["pad"] = True
+        v["strings"] = True
+    if pal & {"pad", "pads"}:
+        v["pad"] = True
+    # Plucks / bells.
+    if "bell" in pal:
+        v["pluck"] = "bell"
+    elif pal & {"pluck", "arp"}:
+        v["pluck"] = "pluck"
+    # Lead / topline.
+    if "synth_lead" in pal:
+        v["lead"] = "synth_lead"
+    elif "brass" in pal:
+        v["lead"] = "brass"
+    elif "lead" in pal:
+        v["lead"] = "lead"
+    return v
+
+
+def _bus_signals(plan: dict, section: dict, sr: int) -> tuple[dict, _Ctx, str, float]:
+    """Synthesize every instrument bus for one section.
+
+    Returns (buses, ctx, label, energy). Buses are mono float64 of length
+    n_section + tail. Exposed so tests can measure per-bus RMS (mix balance).
+    """
     ctx = _ctx(plan)
     label = str(section.get("label", "verse"))
     bars = max(1, int(section.get("bars", 4)))
@@ -558,6 +940,7 @@ def _render_section_internal(plan: dict, section: dict, sr: int) -> np.ndarray:
 
     rng = random.Random(ctx.seed * 1009 + 7919 * (index if index is not None else 0)
                         + _LABEL_CODE.get(label, 8))
+    voices = _palette_voices(ctx)
 
     prog = _prog_for(plan, ctx, label)
     bar_chords = []
@@ -570,7 +953,8 @@ def _render_section_internal(plan: dict, section: dict, sr: int) -> np.ndarray:
         bar_chords.append((degree, triad))
 
     buses = {k: np.zeros(total) for k in
-             ("kick", "snare", "hat_c", "hat_o", "bass", "keys", "pad", "lead")}
+             ("kick", "snare", "hat_c", "hat_o", "bass", "keys", "guitar",
+              "pad", "pluck", "lead")}
 
     def beat_idx(beat: float) -> int:
         return int(round(beat * spb * sr))
@@ -579,22 +963,25 @@ def _render_section_internal(plan: dict, section: dict, sr: int) -> np.ndarray:
     pattern = ctx.pattern
     if label in ("intro", "outro") and energy < 0.5:
         pattern = "sparse"
-    if "drums" in ctx.palette and energy >= 0.18:
-        kit = _build_kit(sr)
+    if voices["drums"] and energy >= 0.18:
+        kit = _build_kit(sr, ctx.voice["kit"])
         fill = (next_label == "chorus")
         for beat, instr, vel in _drum_events(pattern, bpb, bars, energy,
                                              ctx.swing, rng, fill):
             _add(buses[instr], beat_idx(beat), kit[instr] * vel)
 
-    # ---- bass ----
-    if "bass" in ctx.palette:
+    # ---- bass / low end ----
+    if voices["low"]:
+        kind = voices["low"]
         sw = max(ctx.swing, 0.6) if pattern == "shuffle" else ctx.swing
         for bar in range(bars):
             b0 = bar * bpb
             degree, _triad = bar_chords[bar]
             root = ctx.scale[degree % 7] + 12 * (degree // 7) - 12  # octave 2
-            if energy < 0.35:
-                events = [(b0, root, bpb * 0.97)]
+            if kind in ("sub", "808") or energy < 0.35:
+                events = [(b0, root, bpb * 0.95)]
+                if kind == "808" and energy >= 0.5 and rng.random() < 0.5:
+                    events = [(b0, root, bpb / 2 * 0.95), (b0 + bpb / 2, root, bpb / 2 * 0.95)]
             elif energy < 0.65:
                 events = [(b0, root, 1.6)]
                 if bpb >= 4:
@@ -616,12 +1003,13 @@ def _render_section_internal(plan: dict, section: dict, sr: int) -> np.ndarray:
                         events.append((b0 + _swing_pos(pos, sw), m, 0.45))
                     pos += 0.5
             for beat, midi, dur in events:
-                sig = _bass_note(_midi_hz(midi), dur * spb, sr, energy)
+                sig = _bass_note(_hz(midi), dur * spb, sr, energy, kind=kind)
                 _add(buses["bass"], beat_idx(beat), sig * rng.uniform(0.92, 1.0))
 
-    # ---- chords / keys ----
-    if ctx.palette & _KEYS_ALIASES:
-        stab = rng.random() < 0.5  # per-section pattern choice (seeded)
+    # ---- keyboard chords ----
+    if voices["keys"]:
+        kv = voices["keys"]
+        stab = rng.random() < 0.5
         for bar in range(bars):
             b0 = bar * bpb
             _degree, triad = bar_chords[bar]
@@ -635,12 +1023,31 @@ def _render_section_internal(plan: dict, section: dict, sr: int) -> np.ndarray:
             else:
                 hits = [(b0 + p, 0.9) for p in range(bpb)]
             for beat, dur in hits:
-                sig = _keys_chord(voiced, dur * spb, sr, energy)
+                sig = _keys_chord(voiced, dur * spb, sr, energy, voice=kv)
                 _add(buses["keys"], beat_idx(_swing_pos(beat, ctx.swing)),
                      sig * rng.uniform(0.9, 1.0))
 
-    # ---- pad ----
-    if ctx.palette & _PAD_ALIASES:
+    # ---- guitar (strummed / picked Karplus-Strong) ----
+    if voices["guitar"]:
+        gkind = voices["guitar"]
+        for bar in range(bars):
+            b0 = bar * bpb
+            _degree, triad = bar_chords[bar]
+            voiced = [m + 12 for m in triad] + [triad[0] + 24]
+            if energy < 0.4:
+                hits = [(b0, bpb * 0.95)]                # let chords ring
+            elif energy < 0.7:
+                hits = [(b0 + p, 1.0) for p in range(0, bpb, max(1, bpb // 2))]
+            else:
+                hits = [(b0 + p * 0.5, 0.5) for p in range(bpb * 2)]   # 8th strums
+            for beat, dur in hits:
+                sig = _guitar_chord(voiced, dur * spb + 0.3, sr, kind=gkind,
+                                    seed=ctx.seed + bar * 7 + int(beat * 4))
+                _add(buses["guitar"], beat_idx(_swing_pos(beat, ctx.swing)),
+                     sig * rng.uniform(0.85, 1.0))
+
+    # ---- pad / strings ----
+    if voices["pad"]:
         bar = 0
         while bar < bars:
             degree, triad = bar_chords[bar]
@@ -648,12 +1055,27 @@ def _render_section_internal(plan: dict, section: dict, sr: int) -> np.ndarray:
             while bar + span < bars and bar_chords[bar + span][0] == degree:
                 span += 1
             voiced = [m + 12 for m in triad] + [triad[0] + 24]
-            sig = _pad_chord(voiced, span * bpb * spb + 0.4, sr)
+            sig = _pad_chord(voiced, span * bpb * spb + 0.4, sr, strings=voices["strings"])
             _add(buses["pad"], beat_idx(bar * bpb), sig)
             bar += span
 
+    # ---- pluck / bell (off-beat arpeggio sparkle) ----
+    if voices["pluck"] and energy >= 0.4:
+        pk = voices["pluck"]
+        for bar in range(bars):
+            b0 = bar * bpb
+            _degree, triad = bar_chords[bar]
+            arp = [m + 24 for m in triad]
+            step = 0.5
+            for j in range(int(bpb / step)):
+                m = arp[j % len(arp)]
+                sig = _pluck_note(m, step * spb * 1.1, sr, kind=pk,
+                                  seed=ctx.seed + bar * 13 + j)
+                _add(buses["pluck"], beat_idx(_swing_pos(b0 + j * step, ctx.swing)),
+                     sig * 0.8)
+
     # ---- lead melody (chorus only; seeded random walk) ----
-    if label == "chorus":
+    if voices["lead"] and label == "chorus":
         notes, mel_bars = _chorus_melody(plan, ctx)
         section_beats = bars * bpb
         mel_beats = max(mel_bars * bpb, 1)
@@ -663,15 +1085,34 @@ def _render_section_internal(plan: dict, section: dict, sr: int) -> np.ndarray:
                 p = offset + pos
                 if p >= section_beats - 1e-6:
                     break
-                sig = _lead_note(midi, dur * spb, sr)
+                sig = _lead_note(midi, dur * spb, sr, kind=voices["lead"])
                 _add(buses["lead"], beat_idx(p), sig)
             offset += mel_beats
 
-    # ---- stereo assembly ----
-    lvl = {"kick": 0.95, "snare": 0.80, "hat_c": 0.45, "hat_o": 0.40,
-           "bass": 0.80, "keys": 0.50, "pad": 0.30, "lead": 0.50}
+    return buses, ctx, label, energy
+
+
+# Mix levels — hats/cymbals are the QUIETEST; kick + bass are the foundation.
+# Vocal-range instruments (keys/guitar/lead) sit moderate to leave space.
+_BASE_LVL = {
+    "kick": 0.98, "snare": 0.72, "hat_c": 0.20, "hat_o": 0.17,
+    "bass": 0.92, "keys": 0.42, "guitar": 0.46, "pad": 0.26,
+    "pluck": 0.24, "lead": 0.40,
+}
+# Stereo placement: kick/snare/bass centred; everything else tasteful off-centre.
+_PAN = {"hat_c": 0.32, "hat_o": -0.28, "lead": 0.14, "pluck": -0.35, "guitar": 0.22}
+
+
+def _mix_buses(buses: dict, ctx: _Ctx, label: str, sr: int) -> np.ndarray:
+    total = len(next(iter(buses.values())))
+    lvl = dict(_BASE_LVL)
+    # Genre warmth darkens the very top (less hat sizzle, rounder mix).
+    warmth = float(ctx.voice.get("warmth", 0.45))
+    lvl["hat_c"] *= (1.0 - 0.35 * warmth)
+    lvl["hat_o"] *= (1.0 - 0.35 * warmth)
     if label in ("intro", "outro"):
         lvl["keys"] *= 0.85
+        lvl["guitar"] *= 0.85
         lvl["hat_o"] = 0.0
 
     def pan_gains(p: float) -> tuple[float, float]:
@@ -680,26 +1121,48 @@ def _render_section_internal(plan: dict, section: dict, sr: int) -> np.ndarray:
 
     left = np.zeros(total)
     right = np.zeros(total)
-    # Centered: kick, snare, bass
+    # Centred foundation.
     for name in ("kick", "snare", "bass"):
         sig = buses[name] * lvl[name]
         left += sig * 0.7071
         right += sig * 0.7071
-    # Panned hats and lead
-    for name, p in (("hat_c", 0.3), ("hat_o", -0.25), ("lead", 0.12)):
+    # Panned mono elements.
+    for name, p in _PAN.items():
+        if name not in buses:
+            continue
         gl, gr = pan_gains(p)
         sig = buses[name] * lvl[name]
         left += sig * gl
         right += sig * gr
-    # Haas-widened chords and pad
+    # Haas-widened chords and pad for width without phase smear in mono.
     keys = buses["keys"] * lvl["keys"]
     left += keys * 0.74
     right += _haas(keys, 0.012, sr) * 0.74
     pad = buses["pad"] * lvl["pad"]
     left += _haas(pad, 0.018, sr) * 0.74
     right += pad * 0.74
-
     return np.stack([left, right])
+
+
+def _render_section_internal(plan: dict, section: dict, sr: int) -> np.ndarray:
+    """Render one section + release tail → float64 (2, n_section + tail)."""
+    buses, ctx, label, _energy = _bus_signals(plan, section, sr)
+    return _mix_buses(buses, ctx, label, sr)
+
+
+def section_bus_rms(plan: dict, section: dict, sr: int = SR) -> dict:
+    """Debug hook: per-instrument-bus RMS (level-weighted, as mixed) for one
+    section. Used by the smoke test to assert mix balance (hats < kick/bass).
+    """
+    buses, ctx, label, _energy = _bus_signals(plan, section, sr)
+    lvl = dict(_BASE_LVL)
+    warmth = float(ctx.voice.get("warmth", 0.45))
+    lvl["hat_c"] *= (1.0 - 0.35 * warmth)
+    lvl["hat_o"] *= (1.0 - 0.35 * warmth)
+    out = {}
+    for name, sig in buses.items():
+        out[name] = float(core_audio.rms(sig * lvl.get(name, 1.0)))
+    return out
 
 
 def render_section(plan: dict, section: dict, sr: int = 44100) -> np.ndarray:

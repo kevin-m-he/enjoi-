@@ -18,8 +18,16 @@ import math
 import numpy as np
 
 from ..core import audio as core_audio
+from ..core import config
 from ..core.errors import PipelineError
 from ..core import deps
+
+# Constant offset (semitones) that retunes a standard 440 Hz-referenced pitch
+# down to the project's 432 Hz concert reference (~ -31.77 cents). The
+# instrumental is synthesized at 432 Hz; adding this to every scale-snap shift
+# makes the corrected vocal land on the SAME 432-based scale frequency so the
+# two stay coherent (spec 4.8 / config.TUNING_HZ).
+TUNING_OFFSET_SEMITONES = config.TUNING_OFFSET_SEMITONES
 
 log = logging.getLogger("enjoi.tune")
 
@@ -241,7 +249,11 @@ def _correct_chop(
     shift_curve = np.zeros(len(midi_s), dtype=np.float64)
     for s, e in notes:
         note_median = float(np.median(midi_s[s:e]))
-        target = _snap_to_scale(note_median, pcs)
+        # Snap on the standard 440-based MIDI grid to pick the right scale note,
+        # then bias the target down to the 432 Hz reference so the corrected
+        # pitch lands on the SAME frequency the instrumental uses (config.midi_to_hz).
+        # In 440-based MIDI terms the 432 target sits at (snap + TUNING_OFFSET).
+        target = _snap_to_scale(note_median, pcs) + TUNING_OFFSET_SEMITONES
         corrected = midi_s[s:e] + strength * (target - note_median)
         if flatten > 0.0:
             # hard tune: progressively flatten intra-note drift/vibrato

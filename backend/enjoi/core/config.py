@@ -1,6 +1,7 @@
 """Application configuration and well-known directories."""
 from __future__ import annotations
 
+import math
 import os
 from pathlib import Path
 
@@ -11,6 +12,25 @@ PORT = 8723
 
 # Hard limits / defaults from the build spec
 SAMPLE_RATE = 44100
+
+# Concert-pitch reference for ALL generated audio. The product is tuned to
+# A4 = 432 Hz ("Verdi tuning") for a warmer, more enveloping sound. The
+# procedural engine synthesizes notes at this reference and the autotuner snaps
+# the vocal to the same reference, so the instrumental and vocal stay coherent.
+TUNING_HZ = 432.0
+STANDARD_TUNING_HZ = 440.0
+# Constant pitch offset (semitones) from standard 440 Hz to 432 Hz (~ -31.77 c).
+# Add this to a 440-based pitch shift to retune audio to 432.
+TUNING_OFFSET_SEMITONES = 12.0 * math.log2(TUNING_HZ / STANDARD_TUNING_HZ)
+
+
+def midi_to_hz(midi: float, tuning: float = TUNING_HZ) -> float:
+    """MIDI note number → frequency (Hz) at the given concert-A reference.
+
+    With the default ``tuning`` this returns 432 Hz-based frequencies; pass
+    ``STANDARD_TUNING_HZ`` for conventional 440 Hz math.
+    """
+    return float(tuning) * 2.0 ** ((float(midi) - 69.0) / 12.0)
 SEARCH_DEBOUNCE_MS = 400
 SEARCH_RESULT_LIMIT = 12
 MAX_REFERENCE_DURATION_SEC = 10 * 60          # duration cap for references

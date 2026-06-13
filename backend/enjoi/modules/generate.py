@@ -166,8 +166,17 @@ def _render_musicgen(plan: dict, model_id: str, seed: int, nudge: str,
     structure = plan.get("structure") or [{"label": "verse", "bars": 16}]
     energies = list(plan.get("energy_targets") or [])
     key = plan.get("key") or {}
+    genre = str(plan.get("genre") or "").strip()
+    palette = [str(p) for p in (plan.get("instrument_palette") or [])]
+    # plan["prompt"] (from similarity.py) already encodes genre + the
+    # genre-appropriate instrument palette; the fallback mirrors that so
+    # MusicGen is steered to the same genre/instrumentation as the procedural
+    # engine even if the prompt key is missing.
     base_prompt = str(plan.get("prompt") or "").strip() or (
-        f"instrumental, {bpm:.0f} bpm, {key.get('tonic', 'A')} {key.get('mode', 'minor')}")
+        f"{genre + ' ' if genre else ''}instrumental, {bpm:.0f} bpm, "
+        f"{key.get('tonic', 'A')} {key.get('mode', 'minor')}"
+        + (", featuring " + ", ".join(p.replace("_", " ") for p in palette) if palette else "")
+        + ", no vocals")
     if nudge:
         base_prompt = f"{base_prompt}, {nudge}"
 
@@ -215,6 +224,12 @@ def _render_musicgen(plan: dict, model_id: str, seed: int, nudge: str,
 
 def _conform_and_grid(audio: np.ndarray, plan: dict, engine: str,
                       progress: Callable[[float, str], None]) -> tuple[np.ndarray, dict]:
+    # BPM IS FIXED TO THE REFERENCE — tempo is never a stylistic variable and is
+    # never nudged/scaled to hit a target length. The grid bpm == the plan bpm
+    # (== the reference bpm) at every similarity value. Length is matched by the
+    # structure/bar choices upstream (similarity.py), not by tempo. The grid
+    # duration is therefore whatever the bar grid yields; any drift from the
+    # reference duration is accepted (coherence over exact length).
     bpm = float(plan.get("bpm") or 120.0)
     ts = str(plan.get("time_signature") or "4/4")
     try:
@@ -224,12 +239,6 @@ def _conform_and_grid(audio: np.ndarray, plan: dict, engine: str,
     structure = plan.get("structure") or [{"label": "verse", "bars": 16}]
     total_beats = sum(max(1, int(s.get("bars", 4))) for s in structure) * bpb
     grid_dur = total_beats * 60.0 / bpm
-
-    target = float(plan.get("target_duration_sec") or grid_dur)
-    if target > 0 and abs(grid_dur - target) / target > config.LENGTH_TOLERANCE:
-        # Nudge the grid tempo so the song lands on the target length (±5%).
-        bpm = bpm * grid_dur / target
-        grid_dur = target
     spb = 60.0 / bpm
 
     # Conform audio to the grid duration.

@@ -1,9 +1,22 @@
 """Similarity slider → generation plan (spec §4.3, table columns 0/25/50/75/100).
 
 Pure functions over the reference profile — no audio I/O, stdlib only.
-The slider maps *style descriptors* (tempo, key, structure, energy shape,
-palette, groove) to a plan dict for the generator. Melody, chords and the
-reference audio itself are never copied at any value ("style, never substance").
+
+The slider maps *style descriptors* (key, structure, energy shape, palette,
+groove) to a plan dict for the generator. Melody, chords and the reference
+audio itself are never copied at any value ("style, never substance").
+
+TEMPO IS NOT A STYLISTIC VARIABLE. At every similarity value the plan BPM
+equals the reference BPM exactly (octave-sanity-clamped to 60–200). The slider
+never nudges, randomizes, or scales tempo — see ``_plan_bpm``.
+
+GENRE → INSTRUMENTATION. The reference's ``genre_tags`` select a genre profile
+(``_GENRE_PROFILES``) that drives which synthesized instruments are used, the
+default groove, swing feel, and arrangement density. The procedural engine
+(synth.py) reads ``plan["genre"]`` and ``plan["instrument_palette"]`` to choose
+genre-appropriate timbres (e.g. country → acoustic guitar + real-ish drums +
+bass + piano, NOT a generic saw synth). The goal is to MIRROR the reference's
+genre and emotional feel, not to impose a house style.
 """
 from __future__ import annotations
 
@@ -14,24 +27,124 @@ import random
 _COLUMNS = (0, 25, 50, 75, 100)
 _TONICS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 _FLAT_TO_SHARP = {"Db": "C#", "Eb": "D#", "Gb": "F#", "Ab": "G#", "Bb": "A#", "Cb": "B", "Fb": "E"}
-_ROLES = ["drums", "bass", "piano", "pad", "lead", "strings", "guitar"]
 _PATTERNS = ("four_on_floor", "backbeat", "halftime", "shuffle", "sparse")
 
-_GENRE_BPM = {
-    "pop": (85, 135), "dance": (118, 134), "edm": (118, 140), "house": (120, 128),
-    "hip hop": (70, 105), "rap": (70, 105), "trap": (70, 105), "r&b": (65, 105),
-    "rock": (95, 165), "metal": (100, 180), "jazz": (80, 160), "blues": (60, 120),
-    "lofi": (60, 90), "country": (80, 140), "folk": (80, 130), "latin": (88, 105),
-    "acoustic": (75, 125), "classical": (60, 140), "k-pop": (90, 135),
+# ---------------------------------------------------------------------------
+# Genre profiles — the heart of genre-appropriate instrumentation.
+#
+# Each canonical genre maps to:
+#   instruments  : ordered instrument-role palette the engine should synthesize.
+#                  These are the genre's "default" full-band arrangement; the
+#                  similarity slider trims/blends it with the reference's own
+#                  stem activity. Roles are interpreted by synth.py.
+#   pattern      : the genre-typical drum pattern_class.
+#   swing        : a sensible swing default (overridden by the reference at high
+#                  similarity).
+#   density      : 0..1 arrangement density hint (how busy / how many layers).
+#   aliases      : substrings matched against the reference's genre_tags.
+#
+# Instrument-role vocabulary understood by synth.py:
+#   drums, bass, sub_bass, acoustic_guitar, electric_guitar, dist_guitar,
+#   piano, epiano, organ, synth_keys, pad, strings, pluck, lead, synth_lead,
+#   brass, bell, arp, 808.
+# ---------------------------------------------------------------------------
+
+_GENRE_PROFILES: dict[str, dict] = {
+    "pop": {
+        "instruments": ["drums", "bass", "piano", "synth_keys", "pad", "lead"],
+        "pattern": "backbeat", "swing": 0.04, "density": 0.6,
+        "aliases": ["pop", "synthpop", "electropop", "dance-pop", "indie pop"],
+    },
+    "rock": {
+        "instruments": ["drums", "bass", "electric_guitar", "piano", "lead"],
+        "pattern": "backbeat", "swing": 0.0, "density": 0.65,
+        "aliases": ["rock", "indie rock", "alt rock", "punk", "garage", "grunge"],
+    },
+    "metal": {
+        "instruments": ["drums", "bass", "dist_guitar", "dist_guitar", "lead"],
+        "pattern": "backbeat", "swing": 0.0, "density": 0.8,
+        "aliases": ["metal", "heavy metal", "metalcore", "djent", "hardcore"],
+    },
+    "country": {
+        "instruments": ["drums", "bass", "acoustic_guitar", "piano", "pedal_steel"],
+        "pattern": "backbeat", "swing": 0.08, "density": 0.5,
+        "aliases": ["country", "americana", "bluegrass", "nashville"],
+    },
+    "folk": {
+        "instruments": ["acoustic_guitar", "bass", "strings", "piano", "drums"],
+        "pattern": "sparse", "swing": 0.06, "density": 0.4,
+        "aliases": ["folk", "singer-songwriter", "indie folk"],
+    },
+    "acoustic": {
+        "instruments": ["acoustic_guitar", "bass", "piano", "strings", "drums"],
+        "pattern": "sparse", "swing": 0.05, "density": 0.38,
+        "aliases": ["acoustic", "unplugged"],
+    },
+    "hip hop": {
+        "instruments": ["drums", "808", "epiano", "pad", "bell"],
+        "pattern": "halftime", "swing": 0.12, "density": 0.45,
+        "aliases": ["hip hop", "hip-hop", "hiphop", "rap", "boom bap", "conscious"],
+    },
+    "trap": {
+        "instruments": ["drums", "808", "synth_keys", "bell", "pad"],
+        "pattern": "halftime", "swing": 0.06, "density": 0.5,
+        "aliases": ["trap", "drill"],
+    },
+    "r&b": {
+        "instruments": ["drums", "bass", "epiano", "pad", "synth_keys", "lead"],
+        "pattern": "halftime", "swing": 0.14, "density": 0.5,
+        "aliases": ["r&b", "rnb", "soul", "neo soul", "neo-soul", "contemporary r&b"],
+    },
+    "edm": {
+        "instruments": ["drums", "sub_bass", "synth_keys", "pluck", "pad", "synth_lead"],
+        "pattern": "four_on_floor", "swing": 0.0, "density": 0.7,
+        "aliases": ["edm", "electronic", "future bass", "dubstep", "electro"],
+    },
+    "dance": {
+        "instruments": ["drums", "sub_bass", "synth_keys", "pluck", "pad", "synth_lead"],
+        "pattern": "four_on_floor", "swing": 0.0, "density": 0.7,
+        "aliases": ["dance", "dance pop"],
+    },
+    "house": {
+        "instruments": ["drums", "sub_bass", "synth_keys", "pluck", "pad", "organ"],
+        "pattern": "four_on_floor", "swing": 0.04, "density": 0.65,
+        "aliases": ["house", "deep house", "tech house", "progressive house"],
+    },
+    "lofi": {
+        "instruments": ["drums", "bass", "epiano", "pad", "pluck"],
+        "pattern": "halftime", "swing": 0.18, "density": 0.35,
+        "aliases": ["lofi", "lo-fi", "chillhop", "chill"],
+    },
+    "jazz": {
+        "instruments": ["drums", "bass", "piano", "brass", "lead"],
+        "pattern": "shuffle", "swing": 0.5, "density": 0.55,
+        "aliases": ["jazz", "swing", "bebop", "fusion"],
+    },
+    "blues": {
+        "instruments": ["drums", "bass", "electric_guitar", "organ", "lead"],
+        "pattern": "shuffle", "swing": 0.4, "density": 0.5,
+        "aliases": ["blues", "rhythm and blues"],
+    },
+    "latin": {
+        "instruments": ["drums", "bass", "piano", "brass", "acoustic_guitar"],
+        "pattern": "four_on_floor", "swing": 0.08, "density": 0.65,
+        "aliases": ["latin", "reggaeton", "salsa", "bossa", "samba", "afrobeat"],
+    },
+    "k-pop": {
+        "instruments": ["drums", "bass", "synth_keys", "pluck", "pad", "synth_lead"],
+        "pattern": "backbeat", "swing": 0.03, "density": 0.7,
+        "aliases": ["k-pop", "kpop", "k pop"],
+    },
+    "classical": {
+        "instruments": ["strings", "piano", "brass", "pad"],
+        "pattern": "sparse", "swing": 0.0, "density": 0.45,
+        "aliases": ["classical", "orchestral", "cinematic", "soundtrack", "score"],
+    },
 }
-_GENRE_PATTERN = {
-    "pop": "backbeat", "rock": "backbeat", "metal": "backbeat", "country": "backbeat",
-    "folk": "backbeat", "r&b": "backbeat", "k-pop": "backbeat",
-    "dance": "four_on_floor", "edm": "four_on_floor", "house": "four_on_floor",
-    "latin": "four_on_floor", "hip hop": "halftime", "rap": "halftime", "trap": "halftime",
-    "jazz": "shuffle", "blues": "shuffle", "lofi": "sparse", "acoustic": "sparse",
-    "classical": "sparse",
-}
+
+# Canonical fallback when no genre tag matches.
+_DEFAULT_GENRE = "pop"
+
 _LABEL_ENERGY = {
     "intro": 0.30, "verse": 0.55, "prechorus": 0.65, "chorus": 0.90,
     "bridge": 0.60, "outro": 0.30, "inst": 0.50,
@@ -48,6 +161,17 @@ _PATTERN_PHRASE = {
     "sparse": "sparse minimal rhythm",
 }
 
+# Human-readable instrument names for the MusicGen text prompt.
+_PROMPT_INSTRUMENT = {
+    "drums": "drums", "bass": "bass", "sub_bass": "deep sub bass", "808": "808 bass",
+    "acoustic_guitar": "acoustic guitar", "electric_guitar": "electric guitar",
+    "dist_guitar": "distorted guitar", "pedal_steel": "pedal steel",
+    "piano": "piano", "epiano": "electric piano", "organ": "organ",
+    "synth_keys": "synth keys", "pad": "warm pad", "strings": "strings",
+    "pluck": "synth pluck", "lead": "lead melody", "synth_lead": "synth lead",
+    "brass": "brass", "bell": "bell", "arp": "arpeggio",
+}
+
 
 # ---------------------------------------------------------------------------
 # public API
@@ -56,21 +180,22 @@ _PATTERN_PHRASE = {
 def build_generation_plan(profile: dict, similarity: int, rng_seed: int | None = None) -> dict:
     """Map slider value 0..100 + reference profile → generation plan dict.
 
-    Implements spec table 4.3 exactly at the 0/25/50/75/100 columns and
-    interpolates behaviour between them. Reproducible via ``rng_seed`` (a
-    deterministic seed is derived from the profile + similarity otherwise).
+    Implements spec table 4.3 at the 0/25/50/75/100 columns and interpolates
+    behaviour between them — EXCEPT tempo, which is always the reference tempo
+    (BPM is fixed to the reference at every similarity value). Reproducible via
+    ``rng_seed`` (a deterministic seed is derived from the profile + similarity
+    otherwise).
     """
     s = _clamp_similarity(similarity)
     col = _column(s)
     duration = float(profile.get("duration_sec") or 180.0)
-    ref_bpm = _safe_float(profile.get("bpm"), 120.0)
     ref_tonic, ref_mode = _ref_key(profile)
-    genre, bpm_range = _primary_genre(profile)
+    genre, gp = _primary_genre(profile)
 
     seed = _derive_seed(profile, s, rng_seed)
     rng = random.Random(seed)
 
-    bpm = _plan_bpm(s, ref_bpm, bpm_range, rng)
+    bpm = _plan_bpm(profile)  # FIXED to reference at every similarity value.
     tonic, mode = _plan_key(col, ref_tonic, ref_mode, rng)
     time_signature = (profile.get("time_signature") or "4/4") if col >= 50 else "4/4"
     beats_per_bar = {"3/4": 3, "6/8": 6}.get(time_signature, 4)
@@ -82,8 +207,8 @@ def build_generation_plan(profile: dict, similarity: int, rng_seed: int | None =
     ]
     structure = _plan_structure(col, ref_struct, total_bars, rng)
     energy_targets = _plan_energy(col, structure, ref_struct, profile, rng)
-    palette = _plan_palette(s, col, profile, rng)
-    groove = _plan_groove(col, profile, genre, rng)
+    palette = _plan_palette(s, col, profile, genre, gp, rng)
+    groove = _plan_groove(col, profile, genre, gp, rng)
 
     plan: dict = {
         "similarity": s,
@@ -96,7 +221,12 @@ def build_generation_plan(profile: dict, similarity: int, rng_seed: int | None =
         "energy_targets": energy_targets,
         "instrument_palette": palette,
         "groove": groove,
-        "prompt": _build_prompt(profile, bpm, tonic, mode, palette, groove, energy_targets),
+        # Richer descriptors consumed by synth.py / generate.py (additive keys).
+        "genre": genre,
+        "genre_density": round(float(gp.get("density", 0.55)), 3),
+        "mood_tags": [str(t) for t in (profile.get("mood_tags") or []) if t],
+        "prompt": _build_prompt(profile, genre, bpm, tonic, mode, palette,
+                                groove, energy_targets),
         "summary": similarity_summary(profile, s),
     }
     if s >= 75:
@@ -105,7 +235,10 @@ def build_generation_plan(profile: dict, similarity: int, rng_seed: int | None =
 
 
 def similarity_summary(profile: dict, similarity: int) -> str:
-    """Deterministic human-readable label for the slider (no RNG needed)."""
+    """Deterministic human-readable label for the slider (no RNG needed).
+
+    Tempo is fixed to the reference, so the label always reads "same tempo".
+    """
     s = _clamp_similarity(similarity)
     col = _column(s)
     key_phrase = {
@@ -117,19 +250,12 @@ def similarity_summary(profile: dict, similarity: int) -> str:
         50: "same section count", 75: "same section order",
         100: "same structure & bar lengths",
     }[col]
-    if s >= 100:
-        tempo_phrase = "exact tempo"
-    elif s <= 0:
-        tempo_phrase = "free tempo"
-    else:
-        tol = _tempo_tolerance(s)
-        tempo_phrase = f"tempo within {max(1, int(round(tol * 100)))}%"
     groove_phrase = {
         0: "free groove", 25: "genre-typical groove", 50: "similar swing",
         75: "similar groove", 100: "matched groove",
     }[col]
     return (
-        f"{s}% — {key_phrase}, {structure_phrase}, {tempo_phrase}, {groove_phrase}"
+        f"{s}% — {key_phrase}, {structure_phrase}, same tempo, {groove_phrase}"
         " — melody & chords 100% original."
     )
 
@@ -161,10 +287,6 @@ def _interp(x: float, points: list[tuple[float, float]]) -> float:
     return points[-1][1]
 
 
-def _tempo_tolerance(s: int) -> float:
-    return _interp(float(s), [(0, 0.30), (25, 0.15), (50, 0.07), (75, 0.03), (100, 0.0)])
-
-
 def _safe_float(value, default: float) -> float:
     try:
         v = float(value)
@@ -184,28 +306,48 @@ def _derive_seed(profile: dict, s: int, rng_seed: int | None) -> int:
 
 
 # ---------------------------------------------------------------------------
-# per-attribute planners
+# tempo — FIXED to the reference (not a stylistic variable)
 # ---------------------------------------------------------------------------
 
-def _primary_genre(profile: dict) -> tuple[str, tuple[float, float]]:
-    for tag in profile.get("genre_tags") or []:
-        t = str(tag).lower()
-        for name, rng in _GENRE_BPM.items():
-            if name in t or t in name:
-                return name, rng
-    return "pop", _GENRE_BPM["pop"]
+def _octave_clamp_bpm(bpm: float) -> float:
+    """Sanity-clamp a tempo into 60–200 by octave halving/doubling.
 
-
-def _plan_bpm(s: int, ref_bpm: float, bpm_range: tuple[float, float], rng: random.Random) -> float:
-    if s >= 100:
-        bpm = ref_bpm
-    elif s <= 0:
-        bpm = rng.uniform(*bpm_range)  # random in genre range
-    else:
-        tol = _tempo_tolerance(s)
-        bpm = ref_bpm * (1.0 + rng.uniform(-tol, tol))
+    Beat trackers commonly latch onto a double- or half-tempo; we keep the
+    musical tempo but bring it into a sensible range without changing its feel.
+    """
+    if not math.isfinite(bpm) or bpm <= 0:
+        return 120.0
+    while bpm > 200.0:
+        bpm /= 2.0
+    while bpm < 60.0:
+        bpm *= 2.0
     return min(200.0, max(60.0, bpm))
 
+
+def _plan_bpm(profile: dict) -> float:
+    """The reference BPM, octave-clamped to 60–200. Identical at every
+    similarity value — the slider never varies tempo."""
+    return _octave_clamp_bpm(_safe_float(profile.get("bpm"), 120.0))
+
+
+# ---------------------------------------------------------------------------
+# genre selection
+# ---------------------------------------------------------------------------
+
+def _primary_genre(profile: dict) -> tuple[str, dict]:
+    """Resolve the reference's primary genre → (canonical name, genre profile)."""
+    tags = [str(t).lower().strip() for t in (profile.get("genre_tags") or []) if t]
+    for tag in tags:
+        for name, gp in _GENRE_PROFILES.items():
+            for alias in gp["aliases"]:
+                if alias in tag or tag in alias:
+                    return name, gp
+    return _DEFAULT_GENRE, _GENRE_PROFILES[_DEFAULT_GENRE]
+
+
+# ---------------------------------------------------------------------------
+# key
+# ---------------------------------------------------------------------------
 
 def _ref_key(profile: dict) -> tuple[str, str]:
     key = profile.get("key") or {}
@@ -266,7 +408,11 @@ def _scale_bars(bars: list[int], total: int) -> list[int]:
 
 
 def _template_sections(total_bars: int, rng: random.Random, jitter: float) -> list[dict]:
-    """A sensible free song template scaled to ``total_bars``."""
+    """A sensible free song template scaled to ``total_bars``.
+
+    "Less is more": keep section counts modest so the engine can repeat a clean
+    16–24 bar idea rather than cramming. Vocals are added later — leave space.
+    """
     if total_bars >= 56:
         base = [("intro", 4), ("verse", 16), ("chorus", 8), ("verse", 16),
                 ("chorus", 8), ("bridge", 8), ("chorus", 8), ("outro", 4)]
@@ -404,79 +550,110 @@ def _plan_energy_per_bar(s: int, structure: list[dict], profile: dict) -> list[f
 
 # ---- palette -------------------------------------------------------------------
 
-def _reference_palette(profile: dict) -> list[str]:
-    """Ranked instrument roles implied by the reference's stem activity."""
+def _reference_activity(profile: dict) -> dict:
+    """Reference stem activity 0..1 for drums/bass/melodic/vocals."""
     inst = profile.get("instrumentation") or {}
-    drums = _safe_float(inst.get("drums"), 0.7)
-    bass = _safe_float(inst.get("bass"), 0.6)
-    melodic = _safe_float(inst.get("melodic"), 0.5)
-    vocals = _safe_float(inst.get("vocals"), 0.0)
-    scored: list[tuple[str, float]] = [
-        ("drums", drums), ("bass", bass), ("piano", melodic), ("pad", melodic * 0.85),
-    ]
-    if melodic >= 0.6:
-        scored.append(("lead", melodic * 0.75))
-    if vocals >= 0.5:
-        scored.append(("lead", vocals * 0.8))  # vocal melody → lead instrument role
-    best: dict[str, float] = {}
-    for role, act in scored:
-        best[role] = max(best.get(role, 0.0), act)
-    ranked = [r for r, a in sorted(best.items(), key=lambda kv: -kv[1]) if a >= 0.2][:5]
-    for fallback in ("drums", "bass", "piano", "pad"):
-        if len(ranked) >= 3:
-            break
-        if fallback not in ranked:
-            ranked.append(fallback)
-    return ranked
+    return {
+        "drums": _safe_float(inst.get("drums"), 0.7),
+        "bass": _safe_float(inst.get("bass"), 0.6),
+        "melodic": _safe_float(inst.get("melodic"), 0.5),
+        "vocals": _safe_float(inst.get("vocals"), 0.0),
+    }
 
 
-def _plan_palette(s: int, col: int, profile: dict, rng: random.Random) -> list[str]:
-    ref_palette = _reference_palette(profile)
-    if col == 100:
-        return list(ref_palette)  # full palette match
-    n_shared = int(round(_interp(
-        float(s), [(0, 0), (25, 1), (50, 2), (75, 3), (100, len(ref_palette))]
-    )))
-    n_shared = max(0, min(n_shared, len(ref_palette)))
-    palette = ref_palette[:n_shared]
-    pool = [r for r in _ROLES if r not in palette]
-    rng.shuffle(pool)
-    while len(palette) < max(4, n_shared) and pool:
-        palette.append(pool.pop())
-    return palette
+def _plan_palette(s: int, col: int, profile: dict, genre: str, gp: dict,
+                  rng: random.Random) -> list[str]:
+    """Genre-appropriate instrument palette, trimmed by the reference's stem
+    activity and the arrangement density.
+
+    The genre profile supplies the candidate instruments (so country gets
+    acoustic guitar, EDM gets sub bass + plucks, etc.); the reference's stem
+    activity and the density hint decide HOW MANY layers to keep so the result
+    stays clean ("less is more"). Drums/bass are dropped only if the reference
+    truly lacks them.
+    """
+    act = _reference_activity(profile)
+    candidates = list(dict.fromkeys(gp["instruments"]))  # genre band, de-duped
+
+    # Drop the rhythm section only when the reference clearly lacks it.
+    if act["drums"] < 0.15:
+        candidates = [c for c in candidates if c != "drums"]
+    if act["bass"] < 0.15:
+        candidates = [c for c in candidates if c not in ("bass", "sub_bass", "808")]
+
+    # Density → target layer count (kept modest; vocals fill space later).
+    density = float(gp.get("density", 0.55))
+    melodic = act["melodic"]
+    # Lower similarity → leaner, more "generic genre" reading; higher → fuller,
+    # closer to the reference's own richness.
+    sim_factor = _interp(float(s), [(0, 0.7), (50, 0.85), (100, 1.0)])
+    target = density * (0.6 + 0.5 * melodic) * sim_factor
+    n_layers = int(round(_interp(target, [(0.0, 3), (0.5, 4), (0.75, 5), (1.0, 6)])))
+    n_layers = max(3, min(len(candidates), n_layers))
+
+    palette = candidates[:n_layers]
+
+    # Guarantee a usable rhythm foundation.
+    if "drums" not in palette and act["drums"] >= 0.15 and "drums" in candidates:
+        palette.insert(0, "drums")
+    has_low = any(p in ("bass", "sub_bass", "808") for p in palette)
+    if not has_low and act["bass"] >= 0.15:
+        low = next((c for c in candidates if c in ("bass", "sub_bass", "808")), "bass")
+        palette.insert(min(1, len(palette)), low)
+
+    # A lead/topline only when the reference is melodically active (or had vocals
+    # — that melodic role is what the user's vocal will eventually occupy, so we
+    # add a quiet placeholder lead at higher similarity only).
+    lead_roles = {"lead", "synth_lead"}
+    if not (set(palette) & lead_roles) and melodic >= 0.5 and s >= 50:
+        lead = next((c for c in candidates if c in lead_roles), None)
+        if lead and len(palette) < 6:
+            palette.append(lead)
+
+    # De-dupe while preserving order.
+    seen: set[str] = set()
+    out = [p for p in palette if not (p in seen or seen.add(p))]
+    return out or ["drums", "bass", "piano"]
 
 
 # ---- groove --------------------------------------------------------------------
 
-def _plan_groove(col: int, profile: dict, genre: str, rng: random.Random) -> dict:
+def _plan_groove(col: int, profile: dict, genre: str, gp: dict,
+                 rng: random.Random) -> dict:
     ref = profile.get("groove") or {}
     ref_swing = min(1.0, max(0.0, _safe_float(ref.get("swing"), 0.0)))
-    ref_pattern = ref.get("pattern_class") if ref.get("pattern_class") in _PATTERNS else "backbeat"
-    genre_pattern = _GENRE_PATTERN.get(genre, "backbeat")
+    ref_pattern = ref.get("pattern_class") if ref.get("pattern_class") in _PATTERNS else None
+    genre_pattern = gp.get("pattern", "backbeat")
+    genre_swing = float(gp.get("swing", 0.0))
 
-    if col == 100:  # matched pattern class + swing
-        swing, pattern = ref_swing, ref_pattern
+    if col == 100:  # matched pattern class + swing (genre pattern if ref absent)
+        swing = ref_swing if ref_swing > 0 else genre_swing
+        pattern = ref_pattern or genre_pattern
     elif col == 75:  # similar pattern class
-        swing = min(1.0, max(0.0, ref_swing + rng.uniform(-0.03, 0.03)))
-        pattern = ref_pattern
-    elif col == 50:  # similar swing
-        swing = min(1.0, max(0.0, ref_swing + rng.uniform(-0.05, 0.05)))
+        swing = min(1.0, max(0.0, (ref_swing or genre_swing) + rng.uniform(-0.03, 0.03)))
+        pattern = ref_pattern or genre_pattern
+    elif col == 50:  # similar swing, genre pattern
+        swing = min(1.0, max(0.0, (ref_swing or genre_swing) + rng.uniform(-0.05, 0.05)))
         pattern = genre_pattern
     elif col == 25:  # genre-typical
         pattern = genre_pattern
-        swing = 0.25 if pattern == "shuffle" else rng.uniform(0.0, 0.12)
-    else:  # free
-        pattern = rng.choice(_PATTERNS[:4])
-        swing = rng.uniform(0.0, 0.3)
+        swing = genre_swing if genre_swing > 0 else rng.uniform(0.0, 0.1)
+    else:  # free, but still anchored to the genre so it reads as the right style
+        pattern = genre_pattern
+        swing = min(1.0, max(0.0, genre_swing + rng.uniform(-0.05, 0.08)))
     return {"swing": round(swing, 3), "pattern_class": pattern}
 
 
 # ---- prompt --------------------------------------------------------------------
 
-def _build_prompt(profile: dict, bpm: float, tonic: str, mode: str,
+def _build_prompt(profile: dict, genre: str, bpm: float, tonic: str, mode: str,
                   palette: list[str], groove: dict, energy_targets: list[float]) -> str:
-    """MusicGen text prompt from style descriptors only (never the source title)."""
-    genres = [str(t) for t in (profile.get("genre_tags") or []) if t] or ["pop"]
+    """MusicGen text prompt from style descriptors only (never the source title).
+
+    Includes the resolved genre and the genre-appropriate instrument palette so
+    that, when MusicGen is available, it is steered toward the same genre and
+    instrumentation the procedural engine uses.
+    """
     moods = [str(t) for t in (profile.get("mood_tags") or []) if t] or ["warm"]
     mean_energy = sum(energy_targets) / len(energy_targets) if energy_targets else 0.5
     if mean_energy >= 0.65:
@@ -491,12 +668,13 @@ def _build_prompt(profile: dict, bpm: float, tonic: str, mode: str,
         groove_phrase += " with heavy swing"
     elif swing >= 0.15:
         groove_phrase += " with a light swing"
+    instr_words = [_PROMPT_INSTRUMENT.get(p, p.replace("_", " ")) for p in palette]
     parts = [
-        f"{moods[0]} {genres[0]} instrumental",
+        f"{moods[0]} {genre} instrumental",
         f"{int(round(bpm))} bpm",
         f"{tonic} {mode}",
         groove_phrase,
-        "featuring " + ", ".join(palette) if palette else "minimal arrangement",
+        ("featuring " + ", ".join(instr_words)) if instr_words else "minimal arrangement",
         energy_word,
         "no vocals",
         "polished modern production",
