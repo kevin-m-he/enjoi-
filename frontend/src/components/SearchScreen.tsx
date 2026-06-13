@@ -115,17 +115,6 @@ export default function SearchScreen() {
           <ul className="divide-y-2 divide-ink/15">
             {projects.map((p) => (
               <li key={p.id} className="flex items-center gap-3 py-2.5">
-                {p.reference?.thumbnail_url ? (
-                  <img
-                    src={p.reference.thumbnail_url}
-                    alt=""
-                    className="h-10 w-16 shrink-0 rounded-sm border-2 border-ink object-cover"
-                  />
-                ) : (
-                  <div className="grid h-10 w-16 shrink-0 place-items-center rounded-sm border-2 border-ink bg-washi-200 text-prussian-700">
-                    ♪
-                  </div>
-                )}
                 <button
                   onClick={() => void openProject(p)}
                   className="min-w-0 flex-1 text-left transition hover:opacity-80"

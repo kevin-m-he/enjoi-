@@ -514,16 +514,18 @@ def generate_instrumental(project, plan: dict, progress) -> dict:
             audio = None
             if engine_kind == "band":
                 render_p(0.0, "Engine: real-instrument band")
+                # Loop library ONLY — no SoundFont/procedural fallback (those
+                # sounded synthetic). A failure surfaces as a clean error.
                 try:
                     audio = band.render_band(current_plan, render_p)
-                    # label by the sub-engine that actually rendered (loops vs SF)
-                    engine_name = f"band-{getattr(band, 'LAST_ENGINE', 'soundfont')}"
+                    engine_name = "band-loops"
+                except PipelineError:
+                    raise
                 except Exception as exc:
-                    render_p(0.0, f"Band engine failed ({type(exc).__name__}) — "
-                                  "falling back")
-                    engine_kind = "musicgen" if deps.has("audiocraft") else "procedural"
-                    if engine_kind == "musicgen":
-                        _, model_id = _musicgen_choice()
+                    raise PipelineError(
+                        "Could not generate the instrumental from the sample "
+                        "library — please try again."
+                    ) from exc
 
             if engine_kind == "musicgen":
                 engine_name = (model_id or "musicgen").split("/")[-1]

@@ -1327,27 +1327,27 @@ def _glue_and_pocket(bus: np.ndarray) -> np.ndarray:
 
 
 def available() -> bool:  # noqa: F811  (final definition — loop OR soundfont)
-    return library_available() or deps.has("tinysoundfont")
+    return library_available()
 
 
-# Which sub-engine produced the most recent render ("loops" or "soundfont").
-# generate.py reads this so the reported engine name is accurate.
-LAST_ENGINE = "soundfont"
+# Which sub-engine produced the most recent render. Only "loops" now — the
+# General-MIDI SoundFont engine was removed (it sounded synthetic/"happy").
+LAST_ENGINE = "loops"
 
 
 def render_band(plan: dict, progress: Callable | None = None) -> np.ndarray:
     """Render a real-sample, mixed, leveled instrumental → (2, n).
 
-    Primary: the local loop library (real commercial loops warped to the target
-    tempo & key and arranged). Fallback: the General-MIDI SoundFont.
+    Uses ONLY the licensed loop library (real commercial loops warped to the
+    target tempo & key and arranged). The General-MIDI SoundFont fallback has
+    been removed — if the library can't produce audio we raise rather than fall
+    back to a synthetic engine.
     """
     global LAST_ENGINE
-    if library_available() and os.environ.get("ENJOI_ENGINE", "").lower() != "soundfont":
-        try:
-            out = _render_loops(plan, progress)
-            LAST_ENGINE = "loops"
-            return out
-        except Exception as exc:
-            _p(progress, 0.02, f"Loop engine fell back ({type(exc).__name__})")
-    LAST_ENGINE = "soundfont"
-    return _render_soundfont(plan, progress)
+    if not library_available():
+        raise PipelineError(
+            "Sample library unavailable — cannot generate the instrumental."
+        )
+    out = _render_loops(plan, progress)
+    LAST_ENGINE = "loops"
+    return out

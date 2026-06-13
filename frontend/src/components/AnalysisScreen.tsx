@@ -97,21 +97,15 @@ export default function AnalysisScreen() {
 
   return (
     <div className="space-y-6 pt-4">
-      <div className="flex items-center gap-4">
-        <img
-          src={project.reference.thumbnail_url}
-          alt=""
-          className="h-16 w-28 rounded-sm border-3 border-ink object-cover shadow-brutal-sm"
-        />
-        <div className="min-w-0">
-          <h2 className="truncate font-display text-2xl font-black uppercase tracking-tight text-ink">
-            {project.reference.title}
-          </h2>
-          <p className="truncate text-sm font-medium text-prussian-700">
-            {project.reference.channel} · {fmtTime(project.reference.duration_sec)} — analyzed for
-            style only, never copied into your song
-          </p>
-        </div>
+      <div className="min-w-0">
+        <h2 className="font-display text-2xl font-black uppercase tracking-tight text-ink">
+          {project.reference.title}
+        </h2>
+        <p className="text-sm font-medium text-prussian-700">
+          {project.reference.channel ? `${project.reference.channel} · ` : ''}
+          {fmtTime(project.reference.duration_sec)} — analyzed for style only, never copied into
+          your song
+        </p>
       </div>
 
       {!profile && (
