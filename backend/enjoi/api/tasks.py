@@ -33,6 +33,35 @@ def task_reference(project: Project, url: str, progress: ProgressFn) -> dict:
     return {"profile": profile}
 
 
+def task_reference_upload(project: Project, uploaded_path: Path, title: str,
+                          progress: ProgressFn) -> dict:
+    """Reference from a USER-UPLOADED audio file (no YouTube). Same job type and
+    output as task_reference, so the rest of the pipeline is unchanged."""
+    from ..modules.reference import analyze_uploaded
+
+    try:
+        profile = analyze_uploaded(project, uploaded_path, title, progress)
+    finally:
+        try:
+            uploaded_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+    src = profile.get("source", {})
+    project.update_state(
+        reference={
+            "url": "",
+            "video_id": "",
+            "title": src.get("title", title),
+            "channel": "",
+            "duration_sec": profile.get("duration_sec", 0.0),
+            "thumbnail_url": "",
+            "analyzed": True,
+        }
+    )
+    progress(1.0, "Reference analyzed")
+    return {"profile": profile}
+
+
 def task_generate(project: Project, similarity: int, progress: ProgressFn) -> dict:
     if not project.reference_profile_path.exists():
         raise NotReadyError("Analyze a reference track before generating.")

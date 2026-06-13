@@ -78,6 +78,7 @@ interface AppState {
   loadArtifacts: () => Promise<void>;
 
   startReference: (result: SearchResult) => Promise<void>;
+  startReferenceUpload: (file: File) => Promise<void>;
   retryReference: () => Promise<void>;
   startGenerate: (similarity: number) => Promise<void>;
   uploadVocal: (file: File) => Promise<void>;
@@ -306,6 +307,37 @@ export const useStore = create<AppState>()((set, get) => {
           });
         }
         const { job_id } = await api.setReference(p.id, result.url);
+        set((s) => ({
+          activeJobs: { ...s.activeJobs, reference: job_id },
+          profile: null,
+          step: 1,
+        }));
+        await get().refreshProject();
+        void get().loadProjects();
+      } catch (e) {
+        get().toast(errMsg(e), 'error');
+      }
+    },
+
+    async startReferenceUpload(file) {
+      try {
+        let p = get().project;
+        // Same fresh-project rule as startReference: uploading begins a new song
+        // unless the current project has no reference yet.
+        if (!p || p.reference) {
+          p = await api.createProject(file.name.replace(/\.[^./\\]+$/, '') || 'Uploaded track');
+          set({
+            project: p,
+            similarity: 70,
+            profile: null,
+            grid: null,
+            vocalAnalysis: null,
+            arrangement: null,
+            uniqueness: null,
+            manifest: null,
+          });
+        }
+        const { job_id } = await api.uploadReference(p.id, file);
         set((s) => ({
           activeJobs: { ...s.activeJobs, reference: job_id },
           profile: null,

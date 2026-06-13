@@ -91,6 +91,14 @@ export const api = {
   // ---- pipeline steps (all return {job_id}) ----
   setReference: (pid: string, url: string) =>
     req<{ job_id: string }>(`/api/projects/${encodeURIComponent(pid)}/reference`, jsonPost({ url })),
+  uploadReference: (pid: string, file: File) => {
+    const fd = new FormData();
+    fd.append('file', file, file.name);
+    return req<{ job_id: string }>(
+      `/api/projects/${encodeURIComponent(pid)}/reference/upload`,
+      { method: 'POST', body: fd }
+    );
+  },
   generate: (pid: string, similarity: number) =>
     req<{ job_id: string }>(
       `/api/projects/${encodeURIComponent(pid)}/generate`,

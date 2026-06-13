@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { abbrev, errMsg, fmtTime } from '../lib/format';
 import type { ProjectState, SearchResult } from '../lib/types';
@@ -20,6 +20,7 @@ export default function SearchScreen() {
   const openProject = useStore((s) => s.openProject);
   const deleteProject = useStore((s) => s.deleteProject);
   const startReference = useStore((s) => s.startReference);
+  const startReferenceUpload = useStore((s) => s.startReferenceUpload);
   const backendUp = useStore((s) => s.backendUp);
   const project = useStore((s) => s.project);
   const jobs = useStore((s) => s.jobs);
@@ -31,6 +32,7 @@ export default function SearchScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selecting, setSelecting] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   // --- reference job state (UX fix #1 & #2) ---
   const refJob = activeJobs.reference ? jobs[activeJobs.reference] : undefined;
@@ -81,6 +83,16 @@ export default function SearchScreen() {
     }
   };
 
+  const onUpload = async (file: File) => {
+    if (selecting || refRunning) return;
+    setSelecting('upload');
+    try {
+      await startReferenceUpload(file);
+    } finally {
+      setSelecting(null);
+    }
+  };
+
   const locked = (videoId: string): boolean =>
     (selecting !== null && selecting !== videoId) || (refRunning && videoId !== chosenVideoId);
 
@@ -121,6 +133,36 @@ export default function SearchScreen() {
           <p className="mt-2 text-center text-xs font-bold uppercase text-prussian-700">Searching…</p>
         )}
         {error && <p className="mt-2 text-center text-xs font-bold text-pink">{error}</p>}
+
+        {/* Upload your own audio — works for any user, never YouTube-blocked */}
+        <div className="mt-5">
+          <div className="flex items-center gap-3 text-xs font-extrabold uppercase tracking-wide text-prussian-700/50">
+            <span className="h-0.5 flex-1 bg-ink/15" />
+            or
+            <span className="h-0.5 flex-1 bg-ink/15" />
+          </div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg,.flac,.opus"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = '';
+              if (f) void onUpload(f);
+            }}
+          />
+          <button
+            onClick={() => fileRef.current?.click()}
+            disabled={!!selecting || refRunning}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-brutal border-4 border-ink bg-cyan px-5 py-3.5 font-display text-base font-black uppercase tracking-tight text-ink shadow-brutal transition hover:-translate-x-[2px] hover:-translate-y-[2px] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {selecting === 'upload' ? 'Uploading…' : '⬆ Upload your own audio'}
+          </button>
+          <p className="mt-2 text-center text-xs font-medium text-prussian-700/70">
+            MP3, WAV, M4A… 15 sec–10 min. Analyzed for style only — never used in your song.
+          </p>
+        </div>
       </div>
 
       {/* UX FIX #1 — prominent reference loading bar + "move on" gate */}

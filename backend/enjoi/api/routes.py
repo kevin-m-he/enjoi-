@@ -126,6 +126,30 @@ def start_reference(pid: str, body: ReferenceBody) -> dict:
     return {"job_id": job.id}
 
 
+# Upload-your-own-audio reference — works for ANY user, never YouTube-bot-blocked.
+_REF_UPLOAD_EXTS = (".wav", ".mp3", ".m4a", ".aac", ".ogg", ".flac", ".opus")
+
+
+@router.post("/api/projects/{pid}/reference/upload")
+async def start_reference_upload(pid: str, file: UploadFile = File(...)) -> dict:
+    project = _project_or_404(pid)
+    name = file.filename or "reference.wav"
+    suffix = Path(name).suffix.lower()
+    if suffix not in _REF_UPLOAD_EXTS:
+        raise HTTPException(
+            status_code=400,
+            detail="Please upload an audio file (wav, mp3, m4a, flac, ogg, opus).",
+        )
+    fd, tmp_name = tempfile.mkstemp(prefix="enjoi_ref_", suffix=suffix)
+    tmp = Path(tmp_name)
+    with os.fdopen(fd, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+    job = manager.start(
+        "reference", pid, tasks.task_reference_upload, project, tmp, Path(name).stem
+    )
+    return {"job_id": job.id}
+
+
 class GenerateBody(BaseModel):
     similarity: int = Field(ge=0, le=100)
 

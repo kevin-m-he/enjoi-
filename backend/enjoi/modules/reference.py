@@ -41,21 +41,53 @@ _KS_MINOR = np.array([6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69
 # ---------------------------------------------------------------------------
 
 def acquire_and_analyze(project: Project, url: str, progress: ProgressFn) -> dict:
-    """Download reference audio into ``project.ref_cache_dir``, analyze it, and
+    """Download a YouTube reference into ``project.ref_cache_dir``, analyze it, and
     write + return the reference profile dict (contract schema)."""
     p = _safe_progress(progress)
-
     meta, src_path = _download_reference(project, url, p)        # 0.00 – 0.25
+    return _decode_validate_analyze(project, src_path, meta, p)
 
+
+def analyze_uploaded(project: Project, uploaded_path: Path, title: str,
+                     progress: ProgressFn) -> dict:
+    """Analyze a user-UPLOADED audio file as the reference — same analysis as the
+    YouTube path, but works for ANY user and can never be bot-blocked."""
+    import shutil
+
+    p = _safe_progress(progress)
+    p(0.05, "Reading your audio file…")
+    cache = project.ref_cache_dir
+    cache.mkdir(parents=True, exist_ok=True)
+    for stale in cache.glob("source.*"):
+        try:
+            stale.unlink()
+        except OSError:
+            pass
+    suffix = (uploaded_path.suffix or ".wav").lower()
+    src_path = cache / f"source{suffix}"
+    shutil.copyfile(uploaded_path, src_path)
+    meta = {
+        "title": (title or uploaded_path.stem or "Uploaded audio").strip(),
+        "channel": "", "url": "", "video_id": "", "duration_sec": 0.0,
+        "thumbnail_url": "", "uploader": "", "tags": [], "categories": [],
+        "keywords": [], "description": "",
+    }
+    return _decode_validate_analyze(project, src_path, meta, p)
+
+
+def _decode_validate_analyze(project: Project, src_path: Path, meta: dict,
+                             p: ProgressFn) -> dict:
+    """Shared tail for both reference paths: decode → validate length → save
+    reference.wav → analyze → write + return the profile dict."""
     p(0.25, "Decoding audio…")
     y44, _ = core_audio.load_audio(src_path, sr=config.SAMPLE_RATE, mono=True)
     duration = len(y44) / float(config.SAMPLE_RATE)
     if duration > config.MAX_REFERENCE_DURATION_SEC + 1.0:
         raise PipelineError(
-            f"That video is {duration / 60:.1f} minutes long — references must be 10 minutes or shorter."
+            f"That audio is {duration / 60:.1f} minutes long — references must be 10 minutes or shorter."
         )
     if duration < 15.0:
-        raise PipelineError("That video is too short to use as a reference (need at least 15 seconds).")
+        raise PipelineError("That audio is too short to use as a reference (need at least 15 seconds).")
 
     ref_wav = project.ref_cache_dir / "reference.wav"
     core_audio.save_wav(ref_wav, y44, config.SAMPLE_RATE, subtype="PCM_16")
@@ -73,7 +105,7 @@ def acquire_and_analyze(project: Project, url: str, progress: ProgressFn) -> dic
     profile["source"] = {
         "title": meta.get("title", ""),
         "channel": meta.get("channel", ""),
-        "url": meta.get("url", url),
+        "url": meta.get("url", ""),
         "video_id": meta.get("video_id", ""),
         "duration_sec": round(duration, 2),
         "thumbnail_url": meta.get("thumbnail_url", ""),
