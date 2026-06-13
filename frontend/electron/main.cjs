@@ -8,14 +8,36 @@ let mainWindow = null;
 let backendProc = null;
 
 /**
- * In PACKAGED mode the desktop shell is responsible for bringing the FastAPI
- * backend up (per docs/API_CONTRACT.md "Frontend contract"). In dev the
- * backend is assumed to already be running (scripts\dev.ps1).
- * Non-fatal: the renderer shows a friendly "backend not running" screen.
+ * Bring the FastAPI backend up if it isn't already. Preferred path: spawn the
+ * project venv's python directly (no PowerShell — shortcut-safe on systems
+ * that restrict script hosts). Falls back to scripts\run_backend.ps1. If the
+ * port is already in use the spawn dies quietly and the renderer connects to
+ * the existing instance. Non-fatal either way: the renderer shows a friendly
+ * "backend not running" screen with auto-retry.
  */
-function spawnBackendIfPackaged() {
-  if (!app.isPackaged) return;
+function ensureBackend() {
   try {
+    const roots = [
+      path.join(__dirname, '..', '..'),               // repo layout (frontend/electron/)
+      path.join(process.resourcesPath || '', '..'),    // packaged layout
+      process.resourcesPath || '',
+    ];
+    for (const root of roots) {
+      const venvPython = path.join(root, 'backend', '.venv', 'Scripts', 'python.exe');
+      const backendDir = path.join(root, 'backend');
+      if (fs.existsSync(venvPython) && fs.existsSync(path.join(backendDir, 'main.py'))) {
+        backendProc = spawn(
+          venvPython,
+          ['-m', 'uvicorn', 'main:app', '--host', '127.0.0.1', '--port', '8723'],
+          { cwd: backendDir, stdio: 'ignore', windowsHide: true }
+        );
+        backendProc.on('error', () => {
+          backendProc = null;
+        });
+        return;
+      }
+    }
+    // Fallback: PowerShell launcher (packaged installs without a venv beside them)
     const candidates = [
       path.join(process.resourcesPath || '', 'scripts', 'run_backend.ps1'),
       path.join(app.getAppPath(), '..', 'scripts', 'run_backend.ps1'),
@@ -75,7 +97,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  spawnBackendIfPackaged();
+  ensureBackend();
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
