@@ -15,12 +15,12 @@ function StructureStrip({
   const labels = [...new Set(structure.map((s) => s.label))];
   return (
     <div>
-      <div className="flex h-9 w-full overflow-hidden rounded-lg">
+      <div className="flex h-10 w-full overflow-hidden rounded-sm border-3 border-ink">
         {structure.map((s, i) => (
           <div
             key={i}
             title={`${s.label} · ${fmtTime(s.start)}–${fmtTime(s.end)} · ${s.bars} bars`}
-            className="h-full border-r border-black/30 opacity-90 last:border-r-0"
+            className="h-full border-r-2 border-ink last:border-r-0"
             style={{
               width: `${Math.max(((s.end - s.start) / Math.max(duration, 1)) * 100, 0.5)}%`,
               backgroundColor: sectionColor(s.label),
@@ -28,10 +28,13 @@ function StructureStrip({
           />
         ))}
       </div>
-      <div className="mt-2 flex flex-wrap gap-3 text-xs text-zinc-400">
+      <div className="mt-2 flex flex-wrap gap-3 text-xs font-bold text-prussian-700">
         {labels.map((l) => (
           <span key={l} className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: sectionColor(l) }} />
+            <span
+              className="h-3 w-3 border-2 border-ink"
+              style={{ backgroundColor: sectionColor(l) }}
+            />
             {l}
           </span>
         ))}
@@ -42,7 +45,7 @@ function StructureStrip({
 
 function EnergySparkline({ values }: { values: number[] }) {
   if (values.length === 0) {
-    return <p className="text-xs text-zinc-500">No energy data.</p>;
+    return <p className="text-xs font-medium text-prussian-700/70">No energy data.</p>;
   }
   const W = 600;
   const H = 70;
@@ -57,16 +60,16 @@ function EnergySparkline({ values }: { values: number[] }) {
     <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-20 w-full">
       <defs>
         <linearGradient id="energy-grad" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#ec4899" />
-          <stop offset="1" stopColor="#f59e0b" />
+          <stop offset="0" stopColor="#00E5FF" />
+          <stop offset="1" stopColor="#FF2D95" />
         </linearGradient>
       </defs>
-      <polygon points={`0,${H} ${pts} ${W},${H}`} fill="url(#energy-grad)" opacity="0.15" />
+      <polygon points={`0,${H} ${pts} ${W},${H}`} fill="url(#energy-grad)" opacity="0.2" />
       <polyline
         points={pts}
         fill="none"
-        stroke="url(#energy-grad)"
-        strokeWidth="2"
+        stroke="#0B0B0C"
+        strokeWidth="3"
         vectorEffect="non-scaling-stroke"
       />
     </svg>
@@ -98,11 +101,13 @@ export default function AnalysisScreen() {
         <img
           src={project.reference.thumbnail_url}
           alt=""
-          className="h-16 w-28 rounded-xl object-cover"
+          className="h-16 w-28 rounded-sm border-3 border-ink object-cover shadow-brutal-sm"
         />
         <div className="min-w-0">
-          <h2 className="truncate text-xl font-bold text-zinc-100">{project.reference.title}</h2>
-          <p className="truncate text-sm text-zinc-500">
+          <h2 className="truncate font-display text-2xl font-black uppercase tracking-tight text-ink">
+            {project.reference.title}
+          </h2>
+          <p className="truncate text-sm font-medium text-prussian-700">
             {project.reference.channel} · {fmtTime(project.reference.duration_sec)} — analyzed for
             style only, never copied into your song
           </p>
@@ -114,6 +119,7 @@ export default function AnalysisScreen() {
           <JobProgressBar
             job={job}
             onRetry={() => void retryReference()}
+            prominent
             hint="Downloading audio for analysis, extracting BPM, key, structure, energy and instrumentation…"
           />
           {!job && (
@@ -141,10 +147,15 @@ export default function AnalysisScreen() {
               { label: 'Time signature', value: profile.time_signature },
               { label: 'Duration', value: fmtTime(profile.duration_sec) },
             ].map((t) => (
-              <div key={t.label} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p className="text-xs uppercase tracking-wide text-zinc-500">{t.label}</p>
-                <p className="mt-1 text-2xl font-bold text-zinc-100">{t.value}</p>
-                {t.sub && <p className="text-[11px] text-zinc-500">{t.sub}</p>}
+              <div
+                key={t.label}
+                className="rounded-brutal border-4 border-ink bg-foam-50 p-4 shadow-brutal-sm"
+              >
+                <p className="text-xs font-extrabold uppercase tracking-wide text-prussian-700/70">
+                  {t.label}
+                </p>
+                <p className="mt-1 font-display text-2xl font-black text-ink">{t.value}</p>
+                {t.sub && <p className="text-[11px] font-semibold text-prussian-700/70">{t.sub}</p>}
               </div>
             ))}
           </div>
@@ -161,13 +172,13 @@ export default function AnalysisScreen() {
               <div className="space-y-3">
                 {Object.entries(profile.instrumentation).map(([name, v]) => (
                   <div key={name}>
-                    <div className="mb-1 flex justify-between text-xs text-zinc-400">
+                    <div className="mb-1 flex justify-between text-xs font-bold text-prussian-700">
                       <span className="capitalize">{name}</span>
                       <span className="tabular-nums">{Math.round(v * 100)}%</span>
                     </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                    <div className="h-3 overflow-hidden rounded-sm border-2 border-ink bg-washi-200">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-pink-500 to-amber-500"
+                        className="h-full bg-prussian"
                         style={{ width: `${Math.min(Math.max(v, 0), 1) * 100}%` }}
                       />
                     </div>
@@ -182,7 +193,7 @@ export default function AnalysisScreen() {
               {profile.genre_tags.map((g) => (
                 <span
                   key={`g-${g}`}
-                  className="rounded-full border border-pink-500/40 bg-pink-500/10 px-3 py-1 text-xs font-medium text-pink-300"
+                  className="rounded-sm border-2 border-ink bg-pink px-3 py-1 text-xs font-extrabold uppercase text-white"
                 >
                   {g}
                 </span>
@@ -190,12 +201,12 @@ export default function AnalysisScreen() {
               {profile.mood_tags.map((m) => (
                 <span
                   key={`m-${m}`}
-                  className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-300"
+                  className="rounded-sm border-2 border-ink bg-cyan px-3 py-1 text-xs font-extrabold uppercase text-ink"
                 >
                   {m}
                 </span>
               ))}
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-zinc-400">
+              <span className="rounded-sm border-2 border-ink bg-washi-200 px-3 py-1 text-xs font-bold text-prussian-700">
                 groove: {profile.groove.pattern_class} · swing{' '}
                 {Math.round(profile.groove.swing * 100)}%
               </span>
@@ -205,9 +216,9 @@ export default function AnalysisScreen() {
           <div className="flex justify-end pb-6">
             <button
               onClick={() => setStep(2)}
-              className="rounded-xl bg-gradient-to-r from-pink-500 to-amber-500 px-6 py-3 text-sm font-semibold text-white shadow-glow transition hover:opacity-90"
+              className="rounded-brutal border-4 border-ink bg-pink px-6 py-3 font-display text-sm font-black uppercase tracking-tight text-white shadow-brutal transition active:translate-x-[6px] active:translate-y-[6px] active:shadow-none"
             >
-              Continue → Similarity
+              Continue ▶ Similarity
             </button>
           </div>
         </>

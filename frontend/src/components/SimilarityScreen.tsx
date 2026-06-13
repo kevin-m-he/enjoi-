@@ -102,10 +102,10 @@ export default function SimilarityScreen() {
   return (
     <div className="space-y-6 pt-4">
       <div className="text-center">
-        <h2 className="text-3xl font-extrabold tracking-tight">
-          How close to the <span className="text-grad">vibe</span>?
+        <h2 className="font-display text-4xl font-black uppercase tracking-tight text-ink">
+          How close to the <span className="text-pink">vibe</span>?
         </h2>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-zinc-400">
+        <p className="mx-auto mt-2 max-w-xl text-sm font-medium text-prussian-700">
           The slider controls style only — tempo, key, structure, groove, energy, instrument
           palette. The melody and chords of your song are always written from scratch.
         </p>
@@ -113,8 +113,10 @@ export default function SimilarityScreen() {
 
       {/* hero slider */}
       <Card className="px-8 py-8">
-        <div className="mb-4 text-center">
-          <span className="text-6xl font-black tabular-nums text-grad">{value}%</span>
+        <div className="mb-5 text-center">
+          <span className="font-display text-7xl font-black tabular-nums text-stroke-ink text-cyan">
+            {value}%
+          </span>
         </div>
         <input
           type="range"
@@ -126,46 +128,44 @@ export default function SimilarityScreen() {
           disabled={generating}
           onChange={(e) => setValue(Number(e.target.value))}
         />
-        <div className="mt-2 flex justify-between text-[11px] text-zinc-500">
+        <div className="mt-2 flex justify-between text-[11px] font-bold uppercase text-prussian-700/70">
           <span>0% — only the song length is kept</span>
           <span>100% — same vibe, never the same song</span>
         </div>
-        <p className="mt-4 min-h-[1.5rem] text-center text-sm font-medium text-amber-300/90">
-          {summary}
-        </p>
+        <p className="mt-4 min-h-[1.5rem] text-center text-sm font-bold text-pink">{summary}</p>
       </Card>
 
       {/* what locks at this value */}
       <Card title={`What locks at ${value}%`} subtitle="Style, never substance">
         <table className="w-full text-sm">
           <tbody>
-            <tr className="border-b border-white/5">
-              <td className="py-2 pr-4 text-zinc-400">Song length</td>
-              <td className="py-2 font-medium text-zinc-200">
-                always kept (±5%) <span className="text-zinc-500">— at every value</span>
+            <tr className="border-b-2 border-ink/10">
+              <td className="py-2 pr-4 font-bold text-prussian-700">Song length</td>
+              <td className="py-2 font-bold text-ink">
+                always kept (±5%) <span className="text-prussian-700/60">— at every value</span>
               </td>
             </tr>
             {TIER_ROWS.map((row) => (
-              <tr key={row.name} className="border-b border-white/5">
-                <td className="py-2 pr-4 text-zinc-400">{row.name}</td>
-                <td className="py-2 font-medium text-zinc-200">{row.tiers[tier]}</td>
+              <tr key={row.name} className="border-b-2 border-ink/10">
+                <td className="py-2 pr-4 font-bold text-prussian-700">{row.name}</td>
+                <td className="py-2 font-bold text-ink">{row.tiers[tier]}</td>
               </tr>
             ))}
-            <tr className="border-b border-white/5">
-              <td className="py-2 pr-4 text-zinc-400">Melody</td>
-              <td className="py-2 font-semibold text-emerald-300">always 100% original</td>
+            <tr className="border-b-2 border-ink/10">
+              <td className="py-2 pr-4 font-bold text-prussian-700">Melody</td>
+              <td className="py-2 font-extrabold text-pink">always 100% original</td>
             </tr>
-            <tr className="border-b border-white/5">
-              <td className="py-2 pr-4 text-zinc-400">Chord progression</td>
-              <td className="py-2 font-semibold text-emerald-300">always 100% original</td>
+            <tr className="border-b-2 border-ink/10">
+              <td className="py-2 pr-4 font-bold text-prussian-700">Chord progression</td>
+              <td className="py-2 font-extrabold text-pink">always 100% original</td>
             </tr>
             <tr>
-              <td className="py-2 pr-4 text-zinc-400">Reference audio in output</td>
-              <td className="py-2 font-semibold text-emerald-300">never</td>
+              <td className="py-2 pr-4 font-bold text-prussian-700">Reference audio in output</td>
+              <td className="py-2 font-extrabold text-pink">never</td>
             </tr>
           </tbody>
         </table>
-        <p className="mt-3 text-xs text-zinc-500">
+        <p className="mt-3 text-xs font-medium text-prussian-700/70">
           Style, never substance: the slider only ever controls non-copyrightable style
           descriptors. The melody, chord progression, lyrics and the recording itself are never
           copied or conditioned on at any value — including 100%. 100% means “same vibe”, never
@@ -174,9 +174,9 @@ export default function SimilarityScreen() {
       </Card>
 
       {showLimitNote && (
-        <div className="flex items-start justify-between gap-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200/90">
+        <div className="flex items-start justify-between gap-4 rounded-brutal border-4 border-ink bg-cyan p-4 text-sm font-semibold text-ink shadow-brutal-sm">
           <p>
-            <span className="font-semibold">One honest note:</span> no software can{' '}
+            <span className="font-extrabold uppercase">One honest note:</span> no software can{' '}
             <em>guarantee</em> legal non-infringement. The automated Uniqueness Guard enforces
             measurable divergence on melody, harmony and audio — which removes the practical
             copying risk — but it is not legal advice.
@@ -186,7 +186,7 @@ export default function SimilarityScreen() {
               localStorage.setItem(LIMIT_NOTE_KEY, '1');
               setShowLimitNote(false);
             }}
-            className="shrink-0 rounded-lg border border-amber-400/40 px-3 py-1 text-xs font-medium transition hover:bg-amber-500/20"
+            className="shrink-0 rounded-sm border-3 border-ink bg-foam px-3 py-1 text-xs font-extrabold uppercase shadow-brutal-sm transition active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
           >
             Got it
           </button>
@@ -197,7 +197,7 @@ export default function SimilarityScreen() {
         <button
           onClick={() => void startGenerate(value)}
           disabled={generating}
-          className="rounded-2xl bg-gradient-to-r from-pink-500 to-amber-500 px-10 py-4 text-base font-bold text-white shadow-glow transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-brutal border-4 border-ink bg-pink px-10 py-4 font-display text-base font-black uppercase tracking-tight text-white shadow-brutal-lg transition active:translate-x-[6px] active:translate-y-[6px] active:shadow-none disabled:cursor-not-allowed disabled:opacity-50"
         >
           {generating
             ? 'Generating…'
@@ -210,6 +210,7 @@ export default function SimilarityScreen() {
       <JobProgressBar
         job={job}
         onRetry={() => void startGenerate(value)}
+        prominent
         hint="Includes the originality audit — sections that come out too close to the reference are regenerated automatically, so this bar can take a few extra passes."
       />
 
@@ -218,10 +219,8 @@ export default function SimilarityScreen() {
           title="Your instrumental"
           actions={
             <span
-              className={`rounded-full border px-3 py-1 text-xs font-medium ${
-                engineIsMusicGen
-                  ? 'border-violet-500/40 bg-violet-500/10 text-violet-300'
-                  : 'border-white/10 bg-white/5 text-zinc-400'
+              className={`rounded-sm border-2 border-ink px-3 py-1 text-xs font-extrabold uppercase ${
+                engineIsMusicGen ? 'bg-pink text-white' : 'bg-washi-200 text-prussian-700'
               }`}
               title={
                 engineIsMusicGen
@@ -236,10 +235,10 @@ export default function SimilarityScreen() {
           <AudioPlayer src={instrumentalUrl} title="instrumental.wav" />
 
           {uniqueness && (
-            <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+            <div className="mt-4 rounded-brutal border-3 border-ink bg-foam p-4">
               <p
-                className={`text-sm font-semibold ${
-                  uniqueness.passed ? 'text-emerald-300' : 'text-rose-300'
+                className={`text-sm font-extrabold ${
+                  uniqueness.passed ? 'text-prussian-700' : 'text-pink'
                 }`}
               >
                 {uniqueness.summary}
@@ -248,16 +247,16 @@ export default function SimilarityScreen() {
                 {Object.entries(uniqueness.checks).map(([name, c]) => (
                   <div
                     key={name}
-                    className="flex items-center justify-between rounded-lg bg-black/20 px-3 py-2 text-xs"
+                    className="flex items-center justify-between rounded-sm border-2 border-ink bg-washi-200 px-3 py-2 text-xs font-bold"
                   >
-                    <span className="text-zinc-400">{CHECK_LABELS[name] ?? name}</span>
-                    <span className={c.passed ? 'text-emerald-300' : 'text-rose-300'}>
+                    <span className="text-prussian-700">{CHECK_LABELS[name] ?? name}</span>
+                    <span className={c.passed ? 'text-prussian-700' : 'text-pink'}>
                       {checkValue(name, c.value)} {c.passed ? '✓' : '✗'}
                     </span>
                   </div>
                 ))}
               </div>
-              <p className="mt-2 text-[11px] text-zinc-500">
+              <p className="mt-2 text-[11px] font-semibold text-prussian-700/70">
                 {uniqueness.attempts} generation attempt{uniqueness.attempts === 1 ? '' : 's'} ·
                 effective similarity {uniqueness.effective_similarity}%
               </p>
@@ -267,9 +266,9 @@ export default function SimilarityScreen() {
           <div className="mt-4 flex justify-end">
             <button
               onClick={() => setStep(3)}
-              className="rounded-xl bg-gradient-to-r from-pink-500 to-amber-500 px-6 py-3 text-sm font-semibold text-white shadow-glow transition hover:opacity-90"
+              className="rounded-brutal border-4 border-ink bg-pink px-6 py-3 font-display text-sm font-black uppercase tracking-tight text-white shadow-brutal transition active:translate-x-[6px] active:translate-y-[6px] active:shadow-none"
             >
-              Continue → Vocal
+              Continue ▶ Vocal
             </button>
           </div>
         </Card>

@@ -12,10 +12,8 @@ export default function CapabilityBadge({
   return (
     <span
       title={ok ? tooltipOn : tooltipOff}
-      className={`cursor-help select-none rounded-full border px-2.5 py-1 text-xs font-medium transition ${
-        ok
-          ? 'border-pink-500/40 bg-pink-500/10 text-pink-300'
-          : 'border-white/10 bg-white/5 text-zinc-500'
+      className={`cursor-help select-none rounded-brutal border-3 border-ink px-2.5 py-1 text-xs font-extrabold uppercase tracking-tight shadow-brutal-sm transition ${
+        ok ? 'bg-cyan text-ink' : 'bg-washi-200 text-prussian-700/60'
       }`}
     >
       {label}

@@ -8,6 +8,7 @@ import SimilarityScreen from './components/SimilarityScreen';
 import Stepper from './components/Stepper';
 import Toasts from './components/Toasts';
 import VocalScreen from './components/VocalScreen';
+import { HeroWave, FoamMark } from './components/WaveArt';
 import { useJobSocket } from './lib/ws';
 import { useStore } from './store';
 
@@ -23,31 +24,35 @@ function BackendDown() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
-      <div className="mb-6 grid h-20 w-20 place-items-center rounded-full border border-white/10 bg-white/5 text-4xl">
-        🔌
+      <div className="w-full max-w-md overflow-hidden rounded-brutal border-4 border-ink shadow-brutal-lg">
+        <HeroWave className="h-40 w-full" />
+        <div className="border-t-4 border-ink bg-foam-50 p-6">
+          <h1 className="font-display text-3xl font-black uppercase tracking-tight text-ink">
+            <span className="text-pink">Backend</span> not running
+          </h1>
+          <p className="mt-3 text-sm font-medium text-prussian-700">
+            The local enjoi engine isn’t answering on{' '}
+            <code className="rounded-sm border-2 border-ink bg-cyan px-1.5 py-0.5 text-xs font-bold text-ink">
+              127.0.0.1:8723
+            </code>
+            . Start it from the project root with{' '}
+            <code className="rounded-sm border-2 border-ink bg-pink px-1.5 py-0.5 text-xs font-bold text-white">
+              scripts\dev.ps1
+            </code>{' '}
+            and we’ll reconnect automatically.
+          </p>
+          <button
+            onClick={() => void retry()}
+            disabled={checking}
+            className="mt-6 rounded-brutal border-4 border-ink bg-pink px-6 py-3 text-sm font-extrabold uppercase tracking-tight text-white shadow-brutal transition active:translate-x-[6px] active:translate-y-[6px] active:shadow-none disabled:opacity-50"
+          >
+            {checking ? 'Checking…' : 'Retry now'}
+          </button>
+          <p className="mt-3 text-xs font-semibold text-prussian-700/70">
+            Retrying automatically every few seconds…
+          </p>
+        </div>
       </div>
-      <h1 className="text-3xl font-extrabold tracking-tight">
-        <span className="text-grad">Backend</span> not running
-      </h1>
-      <p className="mt-3 max-w-md text-sm text-zinc-400">
-        The local enjoi engine isn’t answering on{' '}
-        <code className="rounded bg-black/40 px-1.5 py-0.5 text-xs text-zinc-300">
-          127.0.0.1:8723
-        </code>
-        . Start it from the project root with{' '}
-        <code className="rounded bg-black/40 px-1.5 py-0.5 text-xs text-amber-300">
-          scripts\dev.ps1
-        </code>{' '}
-        and we’ll reconnect automatically.
-      </p>
-      <button
-        onClick={() => void retry()}
-        disabled={checking}
-        className="mt-6 rounded-xl bg-gradient-to-r from-pink-500 to-amber-500 px-6 py-3 text-sm font-semibold text-white shadow-glow transition hover:opacity-90 disabled:opacity-50"
-      >
-        {checking ? 'Checking…' : 'Retry now'}
-      </button>
-      <p className="mt-3 text-xs text-zinc-600">Retrying automatically every few seconds…</p>
     </div>
   );
 }
@@ -56,10 +61,13 @@ function Splash() {
   return (
     <div className="flex min-h-screen items-center justify-center">
       <div className="text-center">
-        <h1 className="text-4xl font-black tracking-tight">
-          <span className="text-grad">enjoi</span> <span className="text-zinc-200">享受</span>
+        <FoamMark className="mx-auto mb-4 h-12 w-20 animate-foam-bob" />
+        <h1 className="font-display text-5xl font-black tracking-tight">
+          <span className="text-wave">enjoi</span> <span className="text-ink">享受</span>
         </h1>
-        <p className="mt-3 animate-pulse text-sm text-zinc-500">Connecting to the engine…</p>
+        <p className="mt-3 animate-pulse text-sm font-bold uppercase tracking-tight text-prussian-700">
+          Connecting to the engine…
+        </p>
       </div>
     </div>
   );

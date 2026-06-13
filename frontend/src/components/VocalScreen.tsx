@@ -49,12 +49,12 @@ export default function VocalScreen() {
   return (
     <div className="space-y-6 pt-4">
       <div className="text-center">
-        <h2 className="text-3xl font-extrabold tracking-tight">
-          Add your <span className="text-grad">one-take vocal</span>
+        <h2 className="font-display text-4xl font-black uppercase tracking-tight text-ink">
+          Add your <span className="text-pink">one-take vocal</span>
         </h2>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-zinc-400">
-          One continuous take, dry vocal (no reverb or effects), .wav or .mp3. We’ll transcribe
-          it, find your best section and chop it for the arrangement.
+        <p className="mx-auto mt-2 max-w-xl text-sm font-medium text-prussian-700">
+          One continuous take, dry vocal (no reverb or effects), .wav or .mp3. We’ll transcribe it,
+          find your best section and chop it for the arrangement.
         </p>
       </div>
 
@@ -72,10 +72,10 @@ export default function VocalScreen() {
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click();
         }}
-        className={`cursor-pointer rounded-2xl border-2 border-dashed px-6 py-14 text-center transition ${
+        className={`cursor-pointer rounded-brutal border-4 border-dashed px-6 py-14 text-center shadow-brutal transition ${
           dragOver
-            ? 'border-pink-500/70 bg-pink-500/10'
-            : 'border-white/15 bg-white/[0.03] hover:border-pink-500/40 hover:bg-white/[0.05]'
+            ? 'border-pink bg-pink/10'
+            : 'border-ink bg-foam-50 hover:bg-cyan/20'
         } ${processing ? 'pointer-events-none opacity-50' : ''}`}
       >
         <input
@@ -88,21 +88,24 @@ export default function VocalScreen() {
             e.target.value = '';
           }}
         />
-        <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-pink-500/20 to-amber-500/20 text-3xl">
+        <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-brutal border-4 border-ink bg-cyan text-3xl shadow-brutal-sm">
           🎤
         </div>
-        <p className="text-base font-semibold text-zinc-200">
+        <p className="font-display text-lg font-extrabold uppercase tracking-tight text-ink">
           {dragOver ? 'Drop it!' : 'Drag & drop your vocal take here'}
         </p>
-        <p className="mt-1 text-sm text-zinc-500">
-          or <span className="font-medium text-pink-400">browse</span> for a .wav / .mp3 file
+        <p className="mt-1 text-sm font-semibold text-prussian-700">
+          or <span className="font-extrabold text-pink">browse</span> for a .wav / .mp3 file
         </p>
-        {lastFile && <p className="mt-3 text-xs text-zinc-500">Last upload: {lastFile}</p>}
+        {lastFile && (
+          <p className="mt-3 text-xs font-bold text-prussian-700/70">Last upload: {lastFile}</p>
+        )}
       </div>
 
       <JobProgressBar
         job={job}
         onRetry={() => inputRef.current?.click()}
+        prominent
         hint="Cleaning, transcribing lyrics, splitting into phrases and scoring sections…"
       />
 
@@ -114,20 +117,25 @@ export default function VocalScreen() {
               { label: 'Phrases detected', value: String(vocalAnalysis.phrases.length) },
               { label: 'Sections', value: String(vocalAnalysis.sections.length) },
             ].map((t) => (
-              <div key={t.label} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p className="text-xs uppercase tracking-wide text-zinc-500">{t.label}</p>
-                <p className="mt-1 text-2xl font-bold text-zinc-100">{t.value}</p>
+              <div
+                key={t.label}
+                className="rounded-brutal border-4 border-ink bg-foam-50 p-4 shadow-brutal-sm"
+              >
+                <p className="text-xs font-extrabold uppercase tracking-wide text-prussian-700/70">
+                  {t.label}
+                </p>
+                <p className="mt-1 font-display text-2xl font-black text-ink">{t.value}</p>
               </div>
             ))}
           </div>
 
           <Card title="Lyrics transcript" subtitle="Word-level transcription (Whisper, local)">
             {vocalAnalysis.lyrics.trim() ? (
-              <p className="whitespace-pre-wrap rounded-xl bg-black/20 p-4 text-sm leading-relaxed text-zinc-300">
+              <p className="whitespace-pre-wrap rounded-sm border-3 border-ink bg-washi-200 p-4 text-sm font-medium leading-relaxed text-ink">
                 {vocalAnalysis.lyrics}
               </p>
             ) : (
-              <p className="rounded-xl bg-black/20 p-4 text-sm text-zinc-500">
+              <p className="rounded-sm border-3 border-ink bg-washi-200 p-4 text-sm font-medium text-prussian-700">
                 No transcription available
                 {health && !health.capabilities.whisper
                   ? ' — Whisper is not installed, so the take was segmented by energy only.'
@@ -146,33 +154,35 @@ export default function VocalScreen() {
                 .map((sec) => (
                   <li
                     key={sec.id}
-                    className="rounded-xl border border-white/10 bg-black/20 p-4"
+                    className="rounded-brutal border-3 border-ink bg-foam p-4 shadow-brutal-sm"
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex min-w-0 items-center gap-3">
                         <span
-                          className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${roleClasses(sec.role)}`}
+                          className={`shrink-0 rounded-sm border-2 px-2.5 py-0.5 text-xs font-extrabold uppercase ${roleClasses(sec.role)}`}
                         >
                           {roleLabel(sec.role)}
                         </span>
-                        <span className="text-xs tabular-nums text-zinc-500">
+                        <span className="text-xs font-bold tabular-nums text-prussian-700/70">
                           {fmtTime(sec.start)}–{fmtTime(sec.end)}
                         </span>
                       </div>
-                      <span className="shrink-0 text-xs tabular-nums text-zinc-400">
+                      <span className="shrink-0 text-xs font-bold tabular-nums text-prussian-700">
                         Impact {Math.round(sec.impact_score * 100)}
                       </span>
                     </div>
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+                    <div className="mt-2 h-3 overflow-hidden rounded-sm border-2 border-ink bg-washi-200">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-pink-500 to-amber-500"
+                        className="h-full bg-pink"
                         style={{
                           width: `${Math.min(Math.max(sec.impact_score, 0), 1) * 100}%`,
                         }}
                       />
                     </div>
                     {sec.text && (
-                      <p className="mt-2 line-clamp-2 text-sm text-zinc-400">{sec.text}</p>
+                      <p className="mt-2 line-clamp-2 text-sm font-medium text-prussian-700">
+                        {sec.text}
+                      </p>
                     )}
                   </li>
                 ))}
@@ -182,9 +192,9 @@ export default function VocalScreen() {
           <div className="flex justify-end pb-6">
             <button
               onClick={() => setStep(4)}
-              className="rounded-xl bg-gradient-to-r from-pink-500 to-amber-500 px-6 py-3 text-sm font-semibold text-white shadow-glow transition hover:opacity-90"
+              className="rounded-brutal border-4 border-ink bg-pink px-6 py-3 font-display text-sm font-black uppercase tracking-tight text-white shadow-brutal transition active:translate-x-[6px] active:translate-y-[6px] active:shadow-none"
             >
-              Continue → Arrange
+              Continue ▶ Arrange
             </button>
           </div>
         </>

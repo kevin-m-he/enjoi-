@@ -22,19 +22,20 @@ export function clamp(v: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, v));
 }
 
-/** Structure-label palette shared by analysis strip + arrange timeline. */
+/** Structure-label palette shared by analysis strip + arrange timeline.
+ *  Kanagawa + cyan/pink: Prussian blues for structure, cyan/pink for the hooks. */
 export const SECTION_COLORS: Record<string, string> = {
-  intro: '#818cf8',
-  verse: '#38bdf8',
-  prechorus: '#a78bfa',
-  chorus: '#ec4899',
-  bridge: '#f59e0b',
-  outro: '#64748b',
-  inst: '#34d399',
+  intro: '#274C73',
+  verse: '#1B3A5B',
+  prechorus: '#00E5FF',
+  chorus: '#FF2D95',
+  bridge: '#FF1FA2',
+  outro: '#0B2C4D',
+  inst: '#06B6CC',
 };
 
 export function sectionColor(label: string): string {
-  return SECTION_COLORS[label.toLowerCase()] ?? '#71717a';
+  return SECTION_COLORS[label.toLowerCase()] ?? '#274C73';
 }
 
 export function roleLabel(role: string): string {
@@ -45,11 +46,11 @@ export function roleLabel(role: string): string {
 export function roleClasses(role: string): string {
   switch (role) {
     case 'chorus':
-      return 'bg-pink-500/20 text-pink-300 border-pink-500/40';
+      return 'bg-pink text-white border-ink';
     case 'bridge':
-      return 'bg-amber-500/20 text-amber-300 border-amber-500/40';
+      return 'bg-pink-600 text-white border-ink';
     default:
-      return 'bg-sky-500/20 text-sky-300 border-sky-500/40';
+      return 'bg-cyan text-ink border-ink';
   }
 }
 

@@ -3,7 +3,14 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
+  --ink: #0b0b0c;
+  --washi: #f4ecd8;
+  --prussian: #1b3a5b;
+  --prussian-deep: #0b2c4d;
+  --cyan: #00e5ff;
+  --pink: #ff2d95;
+  --foam: #fbf7ec;
 }
 
 html,
@@ -13,27 +20,70 @@ body,
 }
 
 body {
-  @apply text-zinc-200 antialiased;
+  @apply text-ink antialiased;
   font-family: Inter, 'Segoe UI', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
-  background:
-    radial-gradient(1100px 700px at 15% -10%, rgba(91, 53, 167, 0.35) 0%, transparent 60%),
-    radial-gradient(900px 600px at 110% 5%, rgba(236, 72, 153, 0.16) 0%, transparent 55%),
-    linear-gradient(180deg, #0c0a14 0%, #171327 100%);
+  color: var(--ink);
+  /* washi-paper background with a faint seigaiha wave-scale watermark */
+  background-color: var(--washi);
+  background-image:
+    radial-gradient(circle at 16px 32px, transparent 14px, rgba(27, 58, 91, 0.05) 15px, transparent 16px),
+    radial-gradient(circle at 16px 32px, transparent 8px, rgba(27, 58, 91, 0.05) 9px, transparent 10px),
+    radial-gradient(circle at 0px 32px, transparent 14px, rgba(27, 58, 91, 0.05) 15px, transparent 16px),
+    radial-gradient(circle at 32px 32px, transparent 14px, rgba(27, 58, 91, 0.05) 15px, transparent 16px);
+  background-size: 32px 32px;
   background-attachment: fixed;
 }
 
-.text-grad {
-  background-image: linear-gradient(90deg, #ec4899, #f59e0b);
+/* ---------- display / wordmark helpers ---------- */
+.font-display {
+  font-family: Archivo, 'Arial Black', Inter, 'Segoe UI', system-ui, sans-serif;
+}
+
+/* split cyan/pink wordmark fill for "enjoi" */
+.text-wave {
+  background-image: linear-gradient(100deg, var(--cyan) 0%, var(--cyan) 45%, var(--pink) 55%, var(--pink) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  -webkit-text-stroke: 2px var(--ink);
+  paint-order: stroke fill;
 }
 
-/* ---------- range inputs (sliders) ---------- */
+/* outlined chunky heading text */
+.text-stroke-ink {
+  -webkit-text-stroke: 2px var(--ink);
+  paint-order: stroke fill;
+}
+
+/* ---------- seigaiha 青海波 repeating wave-scale pattern ---------- */
+.bg-seigaiha {
+  background-color: var(--prussian);
+  background-image:
+    radial-gradient(circle at 16px 32px, transparent 13px, rgba(255, 255, 255, 0.55) 14px, rgba(255, 255, 255, 0.55) 15px, transparent 16px),
+    radial-gradient(circle at 16px 32px, transparent 8px, rgba(0, 229, 255, 0.5) 9px, rgba(0, 229, 255, 0.5) 10px, transparent 11px),
+    radial-gradient(circle at 16px 32px, transparent 3px, rgba(255, 255, 255, 0.55) 4px, rgba(255, 255, 255, 0.55) 5px, transparent 6px),
+    radial-gradient(circle at 0px 32px, transparent 13px, rgba(255, 255, 255, 0.4) 14px, rgba(255, 255, 255, 0.4) 15px, transparent 16px),
+    radial-gradient(circle at 32px 32px, transparent 13px, rgba(255, 255, 255, 0.4) 14px, rgba(255, 255, 255, 0.4) 15px, transparent 16px);
+  background-size: 32px 32px;
+}
+
+/* a thin animated seigaiha strip used as a section divider */
+.seigaiha-divider {
+  height: 16px;
+  background-color: var(--prussian);
+  background-image:
+    radial-gradient(circle at 12px 24px, transparent 9px, var(--foam) 10px, var(--foam) 11px, transparent 12px),
+    radial-gradient(circle at 12px 24px, transparent 4px, var(--cyan) 5px, var(--cyan) 6px, transparent 7px),
+    radial-gradient(circle at 0px 24px, transparent 9px, rgba(244, 236, 216, 0.6) 10px, rgba(244, 236, 216, 0.6) 11px, transparent 12px),
+    radial-gradient(circle at 24px 24px, transparent 9px, rgba(244, 236, 216, 0.6) 10px, rgba(244, 236, 216, 0.6) 11px, transparent 12px);
+  background-size: 24px 24px;
+}
+
+/* ---------- range inputs (sliders) — brutalist ---------- */
 input[type='range'] {
   -webkit-appearance: none;
   appearance: none;
-  height: 22px;
+  height: 26px;
   background: transparent;
   cursor: pointer;
 }
@@ -42,67 +92,98 @@ input[type='range']:disabled {
   opacity: 0.5;
 }
 input[type='range']::-webkit-slider-runnable-track {
-  height: 6px;
-  border-radius: 9999px;
-  background: linear-gradient(90deg, rgba(236, 72, 153, 0.85), rgba(245, 158, 11, 0.85));
+  height: 12px;
+  border: 3px solid var(--ink);
+  border-radius: 0;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      var(--cyan) 0,
+      var(--cyan) 12px,
+      var(--pink) 12px,
+      var(--pink) 24px
+    );
 }
 input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  margin-top: -6px;
-  height: 18px;
-  width: 18px;
-  border-radius: 9999px;
-  background: #fff;
-  border: 2px solid #ec4899;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  margin-top: -9px;
+  height: 26px;
+  width: 26px;
+  border-radius: 0;
+  background: var(--foam);
+  border: 3px solid var(--ink);
+  box-shadow: 3px 3px 0 0 var(--ink);
+}
+input[type='range']:active::-webkit-slider-thumb {
+  box-shadow: 1px 1px 0 0 var(--ink);
 }
 input[type='range']::-moz-range-track {
-  height: 6px;
-  border-radius: 9999px;
-  background: linear-gradient(90deg, rgba(236, 72, 153, 0.85), rgba(245, 158, 11, 0.85));
+  height: 12px;
+  border: 3px solid var(--ink);
+  border-radius: 0;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      var(--cyan) 0,
+      var(--cyan) 12px,
+      var(--pink) 12px,
+      var(--pink) 24px
+    );
 }
 input[type='range']::-moz-range-thumb {
-  height: 18px;
-  width: 18px;
-  border: 2px solid #ec4899;
-  border-radius: 9999px;
-  background: #fff;
+  height: 24px;
+  width: 24px;
+  border: 3px solid var(--ink);
+  border-radius: 0;
+  background: var(--foam);
+  box-shadow: 3px 3px 0 0 var(--ink);
 }
 
 /* hero variant for the similarity slider */
 input[type='range'].slider-hero {
-  height: 34px;
+  height: 44px;
 }
 input[type='range'].slider-hero::-webkit-slider-runnable-track {
-  height: 12px;
-  box-shadow: 0 0 24px rgba(236, 72, 153, 0.35);
+  height: 22px;
+  border-width: 4px;
 }
 input[type='range'].slider-hero::-webkit-slider-thumb {
-  margin-top: -9px;
-  height: 30px;
-  width: 30px;
+  margin-top: -13px;
+  height: 44px;
+  width: 44px;
+  border-width: 4px;
+  box-shadow: 5px 5px 0 0 var(--ink);
 }
 input[type='range'].slider-hero::-moz-range-track {
-  height: 12px;
+  height: 22px;
+  border-width: 4px;
 }
 input[type='range'].slider-hero::-moz-range-thumb {
-  height: 30px;
-  width: 30px;
+  height: 40px;
+  width: 40px;
+  border-width: 4px;
+  box-shadow: 5px 5px 0 0 var(--ink);
 }
 
 /* ---------- scrollbars ---------- */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 14px;
+  height: 14px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--washi);
+  border-left: 3px solid var(--ink);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 9999px;
+  background: var(--prussian);
+  border: 3px solid var(--ink);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.22);
+  background: var(--cyan);
+}
+
+/* checkbox accent */
+input[type='checkbox'] {
+  accent-color: var(--pink);
 }

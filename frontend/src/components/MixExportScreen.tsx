@@ -22,7 +22,7 @@ const LOUDNESS_PRESETS: [string, string][] = [
 ];
 
 const selectClasses =
-  'w-full rounded-xl border border-white/10 bg-ink-800 px-3 py-2.5 text-sm text-zinc-200 outline-none transition focus:border-pink-500/50';
+  'w-full rounded-brutal border-3 border-ink bg-foam px-3 py-2.5 text-sm font-semibold text-ink outline-none shadow-brutal-sm transition focus:bg-foam-50';
 
 export default function MixExportScreen() {
   const project = useStore((s) => s.project);
@@ -65,10 +65,10 @@ export default function MixExportScreen() {
   return (
     <div className="space-y-6 pt-4">
       <div className="text-center">
-        <h2 className="text-3xl font-extrabold tracking-tight">
-          Mix it. <span className="text-grad">Ship it.</span>
+        <h2 className="font-display text-4xl font-black uppercase tracking-tight text-ink">
+          Mix it. <span className="text-pink">Ship it.</span>
         </h2>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-zinc-400">
+        <p className="mx-auto mt-2 max-w-xl text-sm font-medium text-prussian-700">
           Autotune, mix and master your song to streaming loudness — then export WAV + MP3.
         </p>
       </div>
@@ -92,7 +92,7 @@ export default function MixExportScreen() {
         <Card title="Mix & loudness">
           <div className="space-y-3">
             <div>
-              <label className="mb-1 block text-xs text-zinc-400">Mix preset</label>
+              <label className="mb-1 block text-xs font-bold uppercase text-prussian-700">Mix preset</label>
               <select
                 className={selectClasses}
                 value={preset}
@@ -107,7 +107,7 @@ export default function MixExportScreen() {
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs text-zinc-400">Master loudness</label>
+              <label className="mb-1 block text-xs font-bold uppercase text-prussian-700">Master loudness</label>
               <select
                 className={selectClasses}
                 value={loudness}
@@ -128,7 +128,7 @@ export default function MixExportScreen() {
       <Card title="Song details">
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-xs text-zinc-400">Title</label>
+            <label className="mb-1 block text-xs font-bold uppercase text-prussian-700">Title</label>
             <input
               className={selectClasses}
               placeholder="My song"
@@ -138,7 +138,7 @@ export default function MixExportScreen() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs text-zinc-400">Artist</label>
+            <label className="mb-1 block text-xs font-bold uppercase text-prussian-700">Artist</label>
             <input
               className={selectClasses}
               placeholder="Your artist name"
@@ -148,13 +148,13 @@ export default function MixExportScreen() {
             />
           </div>
         </div>
-        <label className="mt-4 flex cursor-pointer items-center gap-2 text-sm text-zinc-300">
+        <label className="mt-4 flex cursor-pointer items-center gap-2 text-sm font-semibold text-prussian-700">
           <input
             type="checkbox"
             checked={stems}
             onChange={(e) => setStems(e.target.checked)}
             disabled={rendering}
-            className="h-4 w-4 rounded border-white/20 bg-transparent accent-pink-500"
+            className="h-4 w-4 border-2 border-ink"
           />
           Also export stems (instrumental / tuned vocal) for remixing elsewhere
         </label>
@@ -164,7 +164,7 @@ export default function MixExportScreen() {
         <button
           onClick={build}
           disabled={rendering}
-          className="rounded-2xl bg-gradient-to-r from-pink-500 to-amber-500 px-10 py-4 text-base font-bold text-white shadow-glow transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-brutal border-4 border-ink bg-pink px-10 py-4 font-display text-base font-black uppercase tracking-tight text-white shadow-brutal-lg transition active:translate-x-[6px] active:translate-y-[6px] active:shadow-none disabled:cursor-not-allowed disabled:opacity-50"
         >
           {rendering ? 'Building…' : '✦ Build My Song'}
         </button>
@@ -173,6 +173,7 @@ export default function MixExportScreen() {
       <JobProgressBar
         job={job}
         onRetry={build}
+        prominent
         hint="Tuning vocals, mixing buses, mastering to target loudness, encoding WAV + MP3…"
       />
 
@@ -187,62 +188,64 @@ export default function MixExportScreen() {
             <a
               href={wavUrl}
               download="song.wav"
-              className="rounded-xl border border-pink-500/40 bg-pink-500/10 px-4 py-2 text-sm font-medium text-pink-300 transition hover:bg-pink-500/20"
+              className="rounded-brutal border-3 border-ink bg-pink px-4 py-2 text-sm font-extrabold uppercase text-white shadow-brutal-sm transition active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
             >
               ↓ Download WAV
             </a>
             <a
               href={mp3Url}
               download="song.mp3"
-              className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-300 transition hover:bg-amber-500/20"
+              className="rounded-brutal border-3 border-ink bg-cyan px-4 py-2 text-sm font-extrabold uppercase text-ink shadow-brutal-sm transition active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
             >
               ↓ Download MP3
             </a>
           </div>
 
           {manifest && (
-            <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4 text-sm">
-              <p className="font-semibold text-zinc-200">
+            <div className="mt-4 rounded-brutal border-3 border-ink bg-foam p-4 text-sm">
+              <p className="font-display font-extrabold uppercase text-ink">
                 {manifest.title || 'Untitled'}{' '}
-                {manifest.artist && <span className="text-zinc-400">— {manifest.artist}</span>}
+                {manifest.artist && (
+                  <span className="font-bold text-prussian-700">— {manifest.artist}</span>
+                )}
               </p>
-              <div className="mt-2 grid gap-1 text-xs text-zinc-400 sm:grid-cols-2">
+              <div className="mt-2 grid gap-1 text-xs font-semibold text-prussian-700 sm:grid-cols-2">
                 <span>
                   Loudness:{' '}
-                  <span className="tabular-nums text-zinc-200">
+                  <span className="tabular-nums text-ink">
                     {wavMeta?.lufs !== undefined ? `${wavMeta.lufs.toFixed(1)} LUFS` : '—'}
                   </span>
                 </span>
                 <span>
                   True peak:{' '}
-                  <span className="tabular-nums text-zinc-200">
+                  <span className="tabular-nums text-ink">
                     {wavMeta?.true_peak_db !== undefined
                       ? `${wavMeta.true_peak_db.toFixed(1)} dBTP`
                       : '—'}
                   </span>
                 </span>
                 <span>
-                  BPM: <span className="tabular-nums text-zinc-200">{manifest.bpm}</span>
+                  BPM: <span className="tabular-nums text-ink">{manifest.bpm}</span>
                 </span>
                 <span>
-                  Key: <span className="text-zinc-200">{manifest.key}</span>
+                  Key: <span className="text-ink">{manifest.key}</span>
                 </span>
               </div>
               {manifest.uniqueness_report?.summary && (
-                <p className="mt-3 text-xs font-medium text-emerald-300">
+                <p className="mt-3 text-xs font-extrabold text-pink">
                   {manifest.uniqueness_report.summary}
                 </p>
               )}
-              <p className="mt-1 text-[11px] text-zinc-500">
+              <p className="mt-1 text-[11px] font-medium text-prussian-700/70">
                 Sources: {manifest.sources.join(' + ')} — reference audio in output:{' '}
                 {manifest.reference_audio_in_output ? 'yes' : 'never'}
               </p>
             </div>
           )}
 
-          <p className="mt-4 text-xs text-zinc-500">
+          <p className="mt-4 text-xs font-medium text-prussian-700/80">
             Files are saved in{' '}
-            <code className="rounded bg-black/40 px-1.5 py-0.5 text-[11px] text-zinc-300">
+            <code className="rounded-sm border-2 border-ink bg-washi-200 px-1.5 py-0.5 text-[11px] font-bold text-ink">
               {exportsPath}
             </code>{' '}
             — open that folder in Explorer to grab everything (stems and manifest included).

@@ -26,9 +26,9 @@ export default function Slider({
   return (
     <div>
       {(label || format) && (
-        <div className="mb-1 flex items-center justify-between text-xs text-zinc-400">
+        <div className="mb-1.5 flex items-center justify-between text-xs font-bold uppercase tracking-tight text-prussian-700">
           <span>{label}</span>
-          <span className="tabular-nums font-medium text-zinc-200">
+          <span className="tabular-nums rounded-brutal border-2 border-ink bg-foam px-1.5 py-0.5 text-ink">
             {format ? format(value) : value}
           </span>
         </div>
@@ -44,7 +44,7 @@ export default function Slider({
         onChange={(e) => onChange(Number(e.target.value))}
       />
       {(leftLabel || rightLabel) && (
-        <div className="mt-1 flex justify-between text-[11px] text-zinc-500">
+        <div className="mt-1.5 flex justify-between text-[11px] font-semibold text-prussian-700/70">
           <span>{leftLabel}</span>
           <span>{rightLabel}</span>
         </div>

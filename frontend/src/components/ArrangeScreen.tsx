@@ -147,18 +147,18 @@ export default function ArrangeScreen() {
     <div className="space-y-6 pt-4">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-extrabold tracking-tight">
-            Your <span className="text-grad">arrangement</span>
+          <h2 className="font-display text-4xl font-black uppercase tracking-tight text-ink">
+            Your <span className="text-pink">arrangement</span>
           </h2>
-          <p className="mt-1 text-sm text-zinc-400">
-            Drag a vocal pill left or right to move it. Click a pill to mute / unmute it. The
-            server keeps everything on the beat grid and rejects overlaps.
+          <p className="mt-1 text-sm font-medium text-prussian-700">
+            Drag a vocal pill left or right to move it. Click a pill to mute / unmute it. The server
+            keeps everything on the beat grid and rejects overlaps.
           </p>
         </div>
         <button
           onClick={() => void startRearrange(weights)}
           disabled={rearranging || saving}
-          className="shrink-0 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-medium text-zinc-200 transition hover:border-pink-500/40 disabled:opacity-50"
+          className="shrink-0 rounded-brutal border-3 border-ink bg-cyan px-4 py-2.5 text-sm font-extrabold uppercase tracking-tight text-ink shadow-brutal-sm transition active:translate-x-[3px] active:translate-y-[3px] active:shadow-none disabled:opacity-50"
           title="Re-run chorus/bridge detection and placement with the weights below"
         >
           {rearranging ? 'Re-detecting…' : '↻ Re-detect'}
@@ -178,7 +178,7 @@ export default function ArrangeScreen() {
         <Card>
           {/* vocal lane */}
           <div ref={laneRef} className="relative mb-1 h-16 w-full select-none">
-            <span className="absolute -top-1 left-0 text-[10px] uppercase tracking-wider text-zinc-600">
+            <span className="absolute -top-1 left-0 text-[10px] font-extrabold uppercase tracking-wider text-prussian-700/70">
               vocals
             </span>
             {placements.map((p) => {
@@ -192,24 +192,20 @@ export default function ArrangeScreen() {
                   onPointerMove={(e) => onPillPointerMove(e, p)}
                   onPointerUp={(e) => onPillPointerUp(e, p)}
                   title={`${roleLabel(p.role)} · ${len.toFixed(1)}s · slot ${p.slot_label} — drag to move, click to ${disabled ? 'enable' : 'mute'}`}
-                  className={`absolute top-4 flex h-10 cursor-grab touch-none items-center gap-1.5 overflow-hidden rounded-full border px-3 text-xs font-semibold shadow-lg transition-opacity active:cursor-grabbing ${
-                    disabled ? 'opacity-35' : 'opacity-100'
-                  } ${
-                    dragPos?.id === p.id ? 'z-20 ring-2 ring-white/40' : 'z-10'
-                  }`}
+                  className={`absolute top-4 flex h-10 cursor-grab touch-none items-center gap-1.5 overflow-hidden rounded-sm border-3 border-ink px-3 text-xs font-extrabold uppercase text-white shadow-brutal-sm transition-opacity active:cursor-grabbing ${
+                    disabled ? 'opacity-40' : 'opacity-100'
+                  } ${dragPos?.id === p.id ? 'z-20 ring-2 ring-ink' : 'z-10'}`}
                   style={{
                     left: `${(start / duration) * 100}%`,
                     width: `${Math.max((len / duration) * 100, 3)}%`,
-                    backgroundColor: `${sectionColor(p.role)}33`,
-                    borderColor: `${sectionColor(p.role)}aa`,
-                    color: sectionColor(p.role),
+                    backgroundColor: sectionColor(p.role),
                   }}
                 >
                   <span className="truncate">
                     {roleLabel(p.role)}
                     {disabled ? ' (muted)' : ''}
                   </span>
-                  <span className="shrink-0 font-normal tabular-nums opacity-70">
+                  <span className="shrink-0 font-bold tabular-nums opacity-80">
                     {len.toFixed(1)}s
                   </span>
                 </div>
@@ -218,17 +214,17 @@ export default function ArrangeScreen() {
           </div>
 
           {/* instrumental section lane */}
-          <div className="relative h-12 w-full overflow-hidden rounded-lg bg-black/30">
+          <div className="relative h-12 w-full overflow-hidden rounded-sm border-3 border-ink bg-washi-200">
             {(grid?.sections ?? arrangement.slots.map((s) => ({ label: s.label, start: s.start, end: s.end, bars: 0 }))).map(
               (s, i) => (
                 <div
                   key={i}
                   title={`${s.label} · ${fmtTime(s.start)}–${fmtTime(s.end)}`}
-                  className="absolute top-0 flex h-full items-center justify-center overflow-hidden border-r border-black/40 text-[10px] font-medium text-black/70"
+                  className="absolute top-0 flex h-full items-center justify-center overflow-hidden border-r-2 border-ink text-[10px] font-extrabold uppercase text-white"
                   style={{
                     left: `${(s.start / duration) * 100}%`,
                     width: `${((s.end - s.start) / duration) * 100}%`,
-                    backgroundColor: `${sectionColor(s.label)}cc`,
+                    backgroundColor: sectionColor(s.label),
                   }}
                 >
                   <span className="truncate px-1">{s.label}</span>
@@ -238,7 +234,7 @@ export default function ArrangeScreen() {
           </div>
 
           {/* time axis */}
-          <div className="relative mt-1 h-5 w-full text-[10px] tabular-nums text-zinc-500">
+          <div className="relative mt-1 h-5 w-full text-[10px] font-bold tabular-nums text-prussian-700/70">
             {ticks.map((t) => (
               <span
                 key={t}
@@ -250,7 +246,9 @@ export default function ArrangeScreen() {
             ))}
           </div>
 
-          {saving && <p className="mt-2 text-xs text-zinc-500">Saving placement…</p>}
+          {saving && (
+            <p className="mt-2 text-xs font-bold uppercase text-prussian-700">Saving placement…</p>
+          )}
         </Card>
       )}
 
@@ -261,7 +259,7 @@ export default function ArrangeScreen() {
         actions={
           <button
             onClick={() => setShowAdvanced((v) => !v)}
-            className="rounded-lg border border-white/10 px-3 py-1 text-xs text-zinc-400 transition hover:border-white/25"
+            className="rounded-sm border-2 border-ink bg-foam px-3 py-1 text-xs font-extrabold uppercase text-ink shadow-brutal-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
           >
             {showAdvanced ? 'Hide' : 'Show'}
           </button>
@@ -284,7 +282,7 @@ export default function ArrangeScreen() {
             ))}
           </div>
         ) : (
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs font-medium text-prussian-700/80">
             Seven tunable weights (energy, pitch range, pitch height, vibrato, repetition,
             brightness, hookiness). Open to tweak, then press Re-detect.
           </p>
@@ -302,9 +300,9 @@ export default function ArrangeScreen() {
         <button
           onClick={() => setStep(5)}
           disabled={!arrangement}
-          className="rounded-xl bg-gradient-to-r from-pink-500 to-amber-500 px-6 py-3 text-sm font-semibold text-white shadow-glow transition hover:opacity-90 disabled:opacity-50"
+          className="rounded-brutal border-4 border-ink bg-pink px-6 py-3 font-display text-sm font-black uppercase tracking-tight text-white shadow-brutal transition active:translate-x-[6px] active:translate-y-[6px] active:shadow-none disabled:opacity-50"
         >
-          Continue → Mix & Export
+          Continue ▶ Mix &amp; Export
         </button>
       </div>
     </div>

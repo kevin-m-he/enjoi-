@@ -35,7 +35,7 @@ export default function AudioPlayer({ src, title }: { src: string; title?: strin
   };
 
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+    <div className="flex items-center gap-3 rounded-brutal border-3 border-ink bg-foam px-4 py-3 shadow-brutal-sm">
       <audio
         ref={audioRef}
         src={src}
@@ -49,13 +49,17 @@ export default function AudioPlayer({ src, title }: { src: string; title?: strin
       <button
         onClick={toggle}
         aria-label={playing ? 'Pause' : 'Play'}
-        className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-pink-500 to-amber-500 text-white shadow-lg shadow-pink-500/20 transition hover:scale-105"
+        className="grid h-11 w-11 shrink-0 place-items-center rounded-brutal border-3 border-ink bg-pink text-white shadow-brutal-sm transition active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
       >
         {playing ? PauseIcon : PlayIcon}
       </button>
       <div className="min-w-0 flex-1">
-        {title && <div className="mb-1 truncate text-xs font-medium text-zinc-400">{title}</div>}
-        <div className="flex items-center gap-2 text-xs tabular-nums text-zinc-400">
+        {title && (
+          <div className="mb-1 truncate text-xs font-bold uppercase tracking-tight text-prussian-700">
+            {title}
+          </div>
+        )}
+        <div className="flex items-center gap-2 text-xs font-semibold tabular-nums text-prussian-700">
           <span className="w-9 text-right">{fmtTime(time)}</span>
           <input
             type="range"
