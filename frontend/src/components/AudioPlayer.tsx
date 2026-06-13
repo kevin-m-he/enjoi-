@@ -35,7 +35,7 @@ export default function AudioPlayer({ src, title }: { src: string; title?: strin
   };
 
   return (
-    <div className="flex items-center gap-3 rounded-brutal border-3 border-ink bg-cyan px-4 py-3 shadow-brutal-sm">
+    <div className="flex items-center gap-3 rounded-brutal border-3 border-ink bg-foam-50 px-4 py-3 shadow-brutal-sm">
       <audio
         ref={audioRef}
         src={src}

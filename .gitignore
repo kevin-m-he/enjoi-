@@ -9,3 +9,5 @@ frontend/release/
 *.log
 .DS_Store
 Thumbs.db
+backend/.wheels/
+.claude/launch.json

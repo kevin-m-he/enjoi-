@@ -174,7 +174,7 @@ export default function SimilarityScreen() {
       </Card>
 
       {showLimitNote && (
-        <div className="flex items-start justify-between gap-4 rounded-brutal border-4 border-ink bg-cyan p-4 text-sm font-semibold text-ink shadow-brutal-sm">
+        <div className="flex items-start justify-between gap-4 rounded-brutal border-4 border-ink bg-foam-50 p-4 text-sm font-semibold text-ink shadow-brutal-sm">
           <p>
             <span className="font-extrabold uppercase">One honest note:</span> no software can{' '}
             <em>guarantee</em> legal non-infringement. The automated Uniqueness Guard enforces

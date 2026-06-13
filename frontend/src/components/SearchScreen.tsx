@@ -96,7 +96,7 @@ export default function SearchScreen() {
         </p>
         <p className="mx-auto mt-2 max-w-xl text-sm font-bold text-ink">
           Whether you want to be the next <span className="text-pink">Justin Bieber</span> or stay
-          underground like <span className="text-prussian-900">King Steaks</span>.
+          underground like <span className="text-pink">King Steaks</span>.
         </p>
       </div>
 
@@ -114,7 +114,7 @@ export default function SearchScreen() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search YouTube for a song, artist or vibe…"
-            className="w-full rounded-brutal border-4 border-ink bg-cyan py-4 pl-14 pr-5 text-base font-semibold text-ink placeholder-prussian-900/50 shadow-brutal outline-none transition focus:bg-foam"
+            className="w-full rounded-brutal border-4 border-ink bg-foam-50 py-4 pl-14 pr-5 text-base font-semibold text-ink placeholder-prussian-900/50 shadow-brutal outline-none transition focus:bg-foam"
           />
         </div>
         {loading && (
@@ -156,7 +156,7 @@ export default function SearchScreen() {
                 key={r.video_id}
                 onClick={() => void onSelect(r)}
                 disabled={isLocked}
-                className={`group relative overflow-hidden rounded-brutal border-4 border-ink bg-cyan text-left shadow-brutal-sm transition ${
+                className={`group relative overflow-hidden rounded-brutal border-4 border-ink bg-foam-50 text-left shadow-brutal-sm transition ${
                   isChosen
                     ? 'shadow-brutal ring-0'
                     : isLocked

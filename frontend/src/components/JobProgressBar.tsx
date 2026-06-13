@@ -58,7 +58,7 @@ export default function JobProgressBar({
   const barHeight = prominent ? 'h-7' : 'h-4';
 
   return (
-    <div className="rounded-brutal border-4 border-ink bg-cyan p-4 shadow-brutal">
+    <div className="rounded-brutal border-4 border-ink bg-foam-50 p-4 shadow-brutal">
       <div className="flex items-center justify-between gap-3">
         <span className="flex items-center gap-2 font-display text-sm font-extrabold uppercase tracking-tight text-ink">
           {running && <WaveSpinner className="h-5 w-5" />}

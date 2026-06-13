@@ -15,9 +15,9 @@ export default function Card({
 }) {
   return (
     <section
-      className={`relative rounded-brutal border-4 border-ink bg-cyan p-5 shadow-brutal ${className}`}
+      className={`relative rounded-brutal border-4 border-ink bg-foam-50 p-5 shadow-brutal ${className}`}
     >
-      {/* corner foam-claw accent — pink so it stays visible on the cyan card */}
+      {/* corner foam-claw accent — cyan pops on the beige card */}
       <span
         aria-hidden
         className="pointer-events-none absolute right-3 top-3 h-3 w-3 rotate-45 border-r-4 border-t-4 border-pink"

@@ -26,7 +26,7 @@ function BackendDown() {
     <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
       <div className="w-full max-w-md overflow-hidden rounded-brutal border-4 border-ink shadow-brutal-lg">
         <HeroWave className="h-40 w-full" />
-        <div className="border-t-4 border-ink bg-cyan p-6">
+        <div className="border-t-4 border-ink bg-foam-50 p-6">
           <h1 className="font-display text-3xl font-black uppercase tracking-tight text-ink">
             <span className="text-pink">Backend</span> not running
           </h1>

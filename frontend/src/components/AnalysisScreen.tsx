@@ -149,7 +149,7 @@ export default function AnalysisScreen() {
             ].map((t) => (
               <div
                 key={t.label}
-                className="rounded-brutal border-4 border-ink bg-cyan p-4 shadow-brutal-sm"
+                className="rounded-brutal border-4 border-ink bg-foam-50 p-4 shadow-brutal-sm"
               >
                 <p className="text-xs font-extrabold uppercase tracking-wide text-prussian-900">
                   {t.label}

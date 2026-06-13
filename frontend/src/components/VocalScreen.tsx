@@ -75,7 +75,7 @@ export default function VocalScreen() {
         className={`cursor-pointer rounded-brutal border-4 border-dashed px-6 py-14 text-center shadow-brutal transition ${
           dragOver
             ? 'border-pink bg-pink/10'
-            : 'border-ink bg-cyan hover:bg-foam'
+            : 'border-ink bg-foam-50 hover:bg-foam'
         } ${processing ? 'pointer-events-none opacity-50' : ''}`}
       >
         <input
@@ -119,7 +119,7 @@ export default function VocalScreen() {
             ].map((t) => (
               <div
                 key={t.label}
-                className="rounded-brutal border-4 border-ink bg-cyan p-4 shadow-brutal-sm"
+                className="rounded-brutal border-4 border-ink bg-foam-50 p-4 shadow-brutal-sm"
               >
                 <p className="text-xs font-extrabold uppercase tracking-wide text-prussian-900">
                   {t.label}
