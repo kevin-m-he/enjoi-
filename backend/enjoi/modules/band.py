@@ -764,8 +764,21 @@ def _parse_key(name: str):
     return None
 
 
+# Specific loops confirmed (demucs vocal-scan + laugh cross-correlation) to carry
+# a baked-in vocal hook/adlib despite an instrumental name → never use them.
+_VOCAL_BLOCKLIST = {
+    "fl_epiano_chords_f#min_120bpm.wav",
+    "8am_in_charlotte_piano_melodic_chords_bm_86bpm.wav",
+    "jle_dark mode_bullet_bm_146_piano_melody.wav",
+    "8am_in_charlotte_melodic_loop_bm_86bpm.wav",
+    "ews_keys_piano_smooth_e_minor_87bpm.wav",
+}
+
+
 def _categorize(name: str) -> str:
     n = name.lower()
+    if n in _VOCAL_BLOCKLIST:
+        return "vocal"
     # Vocal/adlib samples must NEVER be used as instruments. A vocal one-shot
     # (e.g. "LatinTrapVocals…808") landing on the bass or a clap sounds awful —
     # it reads as a random laugh/chant. The "vocal" cat is in no selection pool.

@@ -356,7 +356,7 @@
   },
   {
    "name": "8AM_In_Charlotte_Melodic_Loop_Bm_86BPM.wav",
-   "cat": "other",
+   "cat": "vocal",
    "bpm": 86,
    "pc": null,
    "mode": null,
@@ -364,7 +364,7 @@
   },
   {
    "name": "8AM_In_Charlotte_Piano_Melodic_Chords_Bm_86BPM.wav",
-   "cat": "piano",
+   "cat": "vocal",
    "bpm": 86,
    "pc": null,
    "mode": null,
@@ -948,7 +948,7 @@
   },
   {
    "name": "EWS_Keys_Piano_smooth_E_Minor_87BPM.wav",
-   "cat": "piano",
+   "cat": "vocal",
    "bpm": 87,
    "pc": null,
    "mode": null,
@@ -988,7 +988,7 @@
   },
   {
    "name": "FL_Epiano_Chords_F#min_120bpm.wav",
-   "cat": "piano",
+   "cat": "vocal",
    "bpm": 120,
    "pc": null,
    "mode": null,
@@ -1252,7 +1252,7 @@
   },
   {
    "name": "JLE_Dark Mode_bullet_Bm_146_Piano_Melody.wav",
-   "cat": "piano",
+   "cat": "vocal",
    "bpm": 146,
    "pc": null,
    "mode": null,
