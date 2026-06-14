@@ -1234,6 +1234,12 @@ def _safe_warp_tile(entry, ctx, tonic_pc, n_total, is_drum=False, gain=1.0):
         return None
     try:
         y = _load(entry)
+        # If the raw sample is already badly clipped/distorted, drop it — a
+        # distorted source only makes the master waveform worse (per the brief:
+        # "if the sound distorts the sine wave, that's your sign to remove").
+        if not is_drum and y.size and float(np.mean(np.abs(y) > 0.985)) > 0.03:
+            log.warning("skipping distorted loop %r", entry.get("name"))
+            return None
         semis = 0.0 if is_drum else _semitones_to(tonic_pc, entry.get("pc"))
         y = _warp(y, entry.get("bpm"), ctx.bpm, semis, is_drum)
         return _tile(y * gain, n_total)
@@ -1385,17 +1391,8 @@ def _render_loops(plan: dict, progress) -> np.ndarray:
     else:
         color = None
 
-    # --- a SECOND texture (pluck / arp / synth) for movement & modern variety —
-    # uses more of the library than just "a band". Sits low, mostly in the
-    # chorus, panned opposite the color so the stereo image opens up.
-    _p(progress, 0.78, "Layering a synth texture…")
-    used = {x["name"] for x in (harmony, color) if x is not None}
-    tex_cats = ("pluck", "arp", "synth") if recipe.get("color") == "pad" else ("arp", "pluck", "synth")
-    texture = _pick(index, tex_cats, tonic_pc, ctx.bpm, rng, mode=mode, keyed=True)
-    if texture is not None and texture["name"] not in used:
-        stem = _safe_warp_tile(texture, ctx, tonic_pc, n_total)
-        if stem is not None:
-            stems["texture"] = stem
+    # "Less is more": drums + bass + the melody (verse/chorus variation) + ONE
+    # subtle pad. No extra texture layer — keep it coherent, not a wall of loops.
 
     if not stems:
         raise PipelineError("Could not build any instruments from the library.")

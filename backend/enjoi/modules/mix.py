@@ -441,6 +441,18 @@ def _limit_true_peak(x: np.ndarray, sr: int, ceiling_db: float = TP_CEILING_DB) 
     return out
 
 
+def _stereo_widen(x: np.ndarray, sr: int, amount: float = 1.22) -> np.ndarray:
+    """M/S stereo widening: boost the side (difference) channel for a wider image,
+    but keep low frequencies (<150 Hz) centred so the bass/808 stays mono and
+    punchy (mono-compatible — the centre is untouched)."""
+    x = _ensure_stereo(x)
+    mid = (x[0] + x[1]) * 0.5
+    side = (x[0] - x[1]) * 0.5
+    side = _butter_filter(side[None, :], 150.0, sr, "high", order=2)[0] * float(amount)
+    out = np.stack([mid + side, mid - side]).astype(np.float32)
+    return np.nan_to_num(out, nan=0.0, posinf=0.0, neginf=0.0)
+
+
 # ---------------------------------------------------------------------------
 # placement loading
 # ---------------------------------------------------------------------------
@@ -625,22 +637,32 @@ def mix_and_master(project, arrangement: dict, grid: dict, preset: str,
     core_audio.save_wav(exports_dir / "_stem_instrumental.wav", inst, sr, subtype="FLOAT")
     core_audio.save_wav(exports_dir / "_stem_vocals.wav", vocal, sr, subtype="FLOAT")
 
-    # ---- master bus ----------------------------------------------------------
-    progress(0.68, "Master: glue compression")
+    # ---- master bus: distribution chain --------------------------------------
+    # Order: Corrective EQ -> Dynamic control -> Stereo widening -> Loudness norm.
     mix = (inst + vocal).astype(np.float32)
-    mix = _bus_compress(mix, sr, ratio=4.0, target_gr_db=2.0,
-                        attack=0.030, release=0.300)
+
+    # 1) Corrective EQ — tame harsh frequencies, then tonal tilt.
+    progress(0.66, "Master: corrective EQ")
+    mix = _peak_eq(mix, sr, 3200.0, -1.6, 1.0)   # de-harsh the 2.5–4 kHz band
     tilt = float(flavor["tilt_db"])
     if abs(tilt) > 1e-3:
         mix = _shelf(mix, sr, 250.0, -tilt, high=False)
         mix = _shelf(mix, sr, 3500.0, +tilt, high=True)
 
-    progress(0.78, f"Master: loudness normalize to {target_lufs:g} LUFS")
+    # 2) Dynamic control — glue compression.
+    progress(0.72, "Master: dynamic control (compression)")
+    mix = _bus_compress(mix, sr, ratio=4.0, target_gr_db=2.0,
+                        attack=0.030, release=0.300)
+
+    # 3) Stereo widening — open the sides, keep the low end mono/punchy.
+    progress(0.78, "Master: stereo widening")
+    mix = _stereo_widen(mix, sr, amount=1.22)
+
+    # 4) Loudness normalization -> target, then a true-peak safety limit (-1 dBTP).
+    progress(0.84, f"Master: loudness normalize to {target_lufs:g} LUFS")
     measured = _measure_lufs(mix, sr)
     if math.isfinite(measured):
         mix = (mix * core_audio.db_to_lin(target_lufs - measured)).astype(np.float32)
-
-    progress(0.86, "Master: true-peak limiting (-1 dBTP)")
     mix = _limit_true_peak(mix, sr, TP_CEILING_DB)
     after = _measure_lufs(mix, sr)
     if math.isfinite(after) and (target_lufs - after) > 0.5:
