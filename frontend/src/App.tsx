@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import AnalysisScreen from './components/AnalysisScreen';
 import ArrangeScreen from './components/ArrangeScreen';
+import FloatingSteak from './components/FloatingSteak';
 import Header from './components/Header';
 import MixExportScreen from './components/MixExportScreen';
 import SearchScreen from './components/SearchScreen';
@@ -119,6 +120,7 @@ export default function App() {
       </main>
       <VerseFooter />
       <Toasts />
+      <FloatingSteak />
     </div>
   );
 }

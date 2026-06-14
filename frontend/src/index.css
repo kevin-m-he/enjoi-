@@ -78,8 +78,21 @@ body::before {
   to { transform: translateY(-200px); }
 }
 
+/* Rare crowned steak Easter egg — floats up the whole viewport with a wiggle. */
+@keyframes steak-float {
+  0%   { transform: translateY(0) translateX(0) rotate(-6deg); opacity: 0; }
+  7%   { opacity: 1; }
+  25%  { transform: translateY(-30vh) translateX(16px) rotate(6deg); }
+  50%  { transform: translateY(-58vh) translateX(-14px) rotate(-5deg); }
+  75%  { transform: translateY(-86vh) translateX(14px) rotate(6deg); }
+  93%  { opacity: 1; }
+  100% { transform: translateY(-118vh) translateX(-4px) rotate(-4deg); opacity: 0; }
+}
+.steak-float { animation: steak-float 15s ease-in-out forwards; will-change: transform; }
+
 @media (prefers-reduced-motion: reduce) {
   body::before { animation: none; }
+  .steak-float { animation: none; display: none; }
 }
 
 /* ---------- display / wordmark helpers ---------- */
