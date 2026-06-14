@@ -31,7 +31,7 @@ export default function FloatingSteak() {
       src={steakImg}
       alt=""
       aria-hidden="true"
-      className="steak-float pointer-events-none fixed bottom-[-32px] h-5 w-5 select-none"
+      className="steak-float pointer-events-none fixed bottom-[-80px] h-16 w-16 select-none"
       style={{ left: `${leftPct}%`, zIndex: -1, imageRendering: 'pixelated' }}
     />
   );

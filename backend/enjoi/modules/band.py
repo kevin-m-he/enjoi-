@@ -743,12 +743,31 @@ _NOTE_PC = {"C": 0, "C#": 1, "DB": 1, "D": 2, "D#": 3, "EB": 3, "E": 4, "F": 5,
 
 
 def _parse_bpm(name: str):
-    for pat in (r'(\d{2,3})\s*BPM', r'BPM\s*(\d{2,3})', r'(\d{2,3})\s*bpm',
-                r'_(\d{2,3})_', r'-\s*(\d{2,3})\s*-', r'(\d{2,3})bpm'):
+    # Try "…bpm" forms FIRST (most reliable), then bare numbers between separators.
+    for pat in (r'(\d{2,3})\s*bpm', r'bpm[\s_-]*(\d{2,3})', r'(\d{2,3})[\s_-]*bpm',
+                r'_(\d{2,3})_', r'-\s*(\d{2,3})\s*-', r'\b(\d{2,3})\s*bpm'):
         m = _re.search(pat, name, _re.I)
         if m and 50 <= int(m.group(1)) <= 200:
             return int(m.group(1))
     return None
+
+
+def _estimate_loop_bpm(y: np.ndarray, target_bpm: float):
+    """When a loop's tempo isn't in its filename, assume it's a clean whole-bar
+    loop (1/2/4/8/16 bars, 4/4) and pick the interpretation needing the LEAST
+    time-stretch to hit the target — so it always lands on the grid, never off."""
+    dur = float(y.shape[-1]) / SR
+    if dur < 0.25:
+        return None
+    best, best_diff = None, 1e9
+    for bars in (1, 2, 4, 8, 16):
+        bpm = bars * 4 * 60.0 / dur          # 4 beats/bar in 4/4
+        if not (55.0 <= bpm <= 200.0):
+            continue
+        diff = abs(_fold_bpm(bpm, target_bpm) - target_bpm)
+        if diff < best_diff:
+            best_diff, best = diff, bpm
+    return best
 
 
 def _parse_key(name: str):
@@ -965,8 +984,9 @@ def _warp(y: np.ndarray, native_bpm, target_bpm: float, semitones: float,
           is_drum: bool) -> np.ndarray:
     import librosa
 
-    if native_bpm:
-        rate = target_bpm / _fold_bpm(native_bpm, target_bpm)
+    nb = native_bpm if native_bpm else _estimate_loop_bpm(y, target_bpm)
+    if nb:
+        rate = target_bpm / _fold_bpm(nb, target_bpm)
         if abs(rate - 1.0) > 0.01:
             y = np.stack([librosa.effects.time_stretch(np.ascontiguousarray(ch), rate=float(rate))
                           for ch in y])
@@ -1026,6 +1046,8 @@ def _pick(index, cats, target_pc, target_bpm, rng, prefer=(), avoid=(), mode=Non
         if s["bpm"]:
             ratio = target_bpm / _fold_bpm(s["bpm"], target_bpm)
             sc -= abs(math.log2(max(ratio, 1e-3))) * 4.0  # penalize stretch
+        else:
+            sc -= 1.2  # unlabeled tempo (estimated at warp) — prefer a known BPM
         # --- key / mode: the heart of "complementary tones" ---
         if s["pc"] is not None and target_pc is not None:
             sc -= abs(_semitones_to(target_pc, s["pc"])) * (0.7 if keyed else 0.25)
@@ -1156,10 +1178,17 @@ def _place(bus: np.ndarray, start: int, sig: np.ndarray, gain: float) -> None:
     bus[:, start:end] += sig[:, : end - start] * gain
 
 
-def _drum_pattern(feel: str, bpb: int, bars: int, intensity: float, rng) -> list[tuple]:
-    """Per-bar (beat, role, velocity) events for a genre groove. Velocities are
-    humanized and an 8th-note snare roll fills the last bar of each 8-bar phrase,
-    so the beat breathes/leads into sections instead of looping robotically."""
+def _drum_pattern(feel: str, bpb: int, bars: int, intensity: float, rng,
+                  bpm: float = 120.0) -> list[tuple]:
+    """Per-bar (beat, role, velocity) events for a genre groove — built from
+    STANDARD, conventional placements so nothing sounds strange:
+      • kick on beat 1 (the downbeat) + a tasteful syncopation
+      • snare/clap on the backbeat — beats 2 & 4 normally; beat 3 only for true
+        (fast) halftime trap
+      • hats: straight 8ths for pop/rock, 16ths (+occasional rolls) for trap,
+        offbeat opens for house/EDM
+    Velocities are humanized and an 8th-note snare roll fills the last bar of each
+    8-bar phrase so the beat breathes into sections."""
     ev: list[tuple] = []
     mid = bpb // 2
 
@@ -1178,7 +1207,10 @@ def _drum_pattern(feel: str, bpb: int, bars: int, intensity: float, rng) -> list
                 kicks.append(mid + 0.5)
             if rng.random() < 0.4 * intensity:
                 kicks.append(bpb - 1.0)
-            snares = [float(mid)]
+            # Fast trap → halftime snare on beat 3; slower boom-bap/hip-hop →
+            # the standard 2 & 4 backbeat.
+            snares = [float(mid)] if (bpm >= 124 and bpb >= 4) else (
+                [1.0, 3.0] if bpb >= 4 else [float(mid)])
             hat_div = 0.25
         elif feel == "folk":
             kicks = [0.0] + ([2.0] if bpb >= 4 else [])
@@ -1191,8 +1223,8 @@ def _drum_pattern(feel: str, bpb: int, bars: int, intensity: float, rng) -> list
             kicks = [0.0] + ([2.5] if (bpb >= 4 and rng.random() < 0.6) else [])
             snares = [1.0, 3.0] if bpb >= 4 else [float(mid)]
         elif feel == "edm":
-            kicks = [float(b) for b in range(bpb)]
-            claps = [float(mid)]
+            kicks = [float(b) for b in range(bpb)]            # four-on-the-floor
+            claps = [1.0, 3.0] if bpb >= 4 else [float(mid)]  # clap on 2 & 4
         elif feel == "rock":
             kicks = [0.0, float(mid)]
             snares = [1.0, 3.0] if bpb >= 4 else [float(mid)]
@@ -1280,7 +1312,7 @@ def _program_drums(index, ctx, n_total, intensity, rng, feel) -> np.ndarray | No
     bus = np.zeros((2, n_total), dtype=np.float32)
     bars = sum(s["bars"] for s in ctx.structure)
     spb, bpb = ctx.spb, ctx.bpb
-    for beat, role, vel in _drum_pattern(feel, bpb, bars, intensity, rng):
+    for beat, role, vel in _drum_pattern(feel, bpb, bars, intensity, rng, ctx.bpm):
         sig = samples.get(role)
         if sig is None:
             sig = samples.get("snare")
