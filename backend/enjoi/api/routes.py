@@ -198,7 +198,8 @@ class RenderBody(BaseModel):
 @router.post("/api/projects/{pid}/render")
 def start_render(pid: str, body: RenderBody) -> dict:
     project = _project_or_404(pid)
-    if body.preset not in config.MIX_PRESETS:
+    # "auto" is valid — task_render picks the mix flavor from the detected genre.
+    if body.preset != "auto" and body.preset not in config.MIX_PRESETS:
         raise HTTPException(status_code=400, detail=f"Unknown preset: {body.preset}")
     if body.loudness_preset not in config.LOUDNESS_PRESETS:
         raise HTTPException(status_code=400, detail=f"Unknown loudness preset: {body.loudness_preset}")
