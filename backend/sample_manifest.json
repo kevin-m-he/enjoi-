@@ -1,7 +1,23 @@
 {
  "version": 1,
- "count": 144,
+ "count": 252,
  "samples": [
+  {
+   "name": "(stem) DC 3 140 bpm Em_Vocal.wav",
+   "cat": "vocal",
+   "bpm": 140,
+   "pc": null,
+   "mode": null,
+   "dur": 16.0
+  },
+  {
+   "name": "(stem) HRv1 6 Em 140 bpm Choir.wav",
+   "cat": "other",
+   "bpm": 140,
+   "pc": 4,
+   "mode": "minor",
+   "dur": 66.977
+  },
   {
    "name": "01 Cyber Securitas Synth swell Fm 150 bpm.wav",
    "cat": "pad",
@@ -9,6 +25,14 @@
    "pc": 5,
    "mode": "minor",
    "dur": 15.118
+  },
+  {
+   "name": "01_808_Emn_142bpm.wav",
+   "cat": "b808",
+   "bpm": 142,
+   "pc": null,
+   "mode": null,
+   "dur": 13.714
   },
   {
    "name": "01_METRO_vol_1_808_Bm_130bpm.wav",
@@ -123,12 +147,44 @@
    "dur": 7.385
   },
   {
-   "name": "04-LatinTrapVocals-Oneshot-808_D.wav",
+   "name": "03_DURKIN_vol_4_808_Cm_116Bpm.wav",
    "cat": "b808",
+   "bpm": 116,
+   "pc": null,
+   "mode": null,
+   "dur": 7.68
+  },
+  {
+   "name": "04-LatinTrapVocals-Oneshot-808_D.wav",
+   "cat": "vocal",
    "bpm": null,
    "pc": null,
    "mode": null,
    "dur": 2.4
+  },
+  {
+   "name": "05_Audiogems_PhonkFury_Fx_Phonk_Impact_Noise_Dark_Em.wav",
+   "cat": "other",
+   "bpm": null,
+   "pc": 4,
+   "mode": "minor",
+   "dur": 6.621
+  },
+  {
+   "name": "05_METRO_vol_2_808_Gmaj_144bpm.wav",
+   "cat": "b808",
+   "bpm": 144,
+   "pc": null,
+   "mode": null,
+   "dur": 12.308
+  },
+  {
+   "name": "08_Mystical_Songstarter_LonelySouls_Cmin_160bpm.wav",
+   "cat": "other",
+   "bpm": 160,
+   "pc": null,
+   "mode": null,
+   "dur": 68.571
   },
   {
    "name": "08_Trippie Nation_G#m_151bpm_Synth Lead.wav",
@@ -139,12 +195,28 @@
    "dur": 13.714
   },
   {
+   "name": "1.808_120bpm_Dmin.wav",
+   "cat": "b808",
+   "bpm": 120,
+   "pc": 2,
+   "mode": "minor",
+   "dur": 13.714
+  },
+  {
    "name": "100bpm_keyC#m_BurnedArp_1_SG_11.wav",
    "cat": "arp",
    "bpm": 100,
    "pc": 1,
    "mode": "minor",
    "dur": 13.714
+  },
+  {
+   "name": "114_vocal_loop_dice_Ebmin.wav",
+   "cat": "vocal",
+   "bpm": null,
+   "pc": 3,
+   "mode": "minor",
+   "dur": 20.211
   },
   {
    "name": "140 BPM - Bm - Sandrine - Rhythm 1 - DRY.wav",
@@ -177,6 +249,14 @@
    "pc": null,
    "mode": null,
    "dur": 15.36
+  },
+  {
+   "name": "19_Drift Phonk_Abstract State_Fx_One-Shot_Bm_Riser_Noise_Layered_Analog.wav",
+   "cat": "other",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 18.824
   },
   {
    "name": "20_Analog_Techno_Arp_124BPM_Fmin_Sidechained.wav",
@@ -251,12 +331,76 @@
    "dur": 9.897
   },
   {
+   "name": "3am_In_Portland_Dreamy_Pad_Am_91BPM.wav",
+   "cat": "pad",
+   "bpm": 91,
+   "pc": null,
+   "mode": null,
+   "dur": 15.0
+  },
+  {
    "name": "80 BPM - Am - Mia - Rhythm 2b - DRY.wav",
    "cat": "other",
    "bpm": 80,
    "pc": 9,
    "mode": "minor",
    "dur": 2.0
+  },
+  {
+   "name": "82 BPM - G - Spanish Guitar - Rhythm 2 [harmony 1] - DRY.wav",
+   "cat": "guitar",
+   "bpm": 82,
+   "pc": null,
+   "mode": null,
+   "dur": 12.0
+  },
+  {
+   "name": "8AM_In_Charlotte_Melodic_Loop_Bm_86BPM.wav",
+   "cat": "other",
+   "bpm": 86,
+   "pc": null,
+   "mode": null,
+   "dur": 9.796
+  },
+  {
+   "name": "8AM_In_Charlotte_Piano_Melodic_Chords_Bm_86BPM.wav",
+   "cat": "piano",
+   "bpm": 86,
+   "pc": null,
+   "mode": null,
+   "dur": 36.0
+  },
+  {
+   "name": "8AM_In_Charlotte_Vocal_Melodic_Adlibs_Loop_Bm_86BPM.wav",
+   "cat": "vocal",
+   "bpm": 86,
+   "pc": null,
+   "mode": null,
+   "dur": 13.618
+  },
+  {
+   "name": "@aquila_beats_hihat-love-on-you-118-a#m.wav",
+   "cat": "hat",
+   "bpm": 118,
+   "pc": null,
+   "mode": null,
+   "dur": 17.778
+  },
+  {
+   "name": "@aquila_beats_kick-crew-128-f#m.wav",
+   "cat": "kick",
+   "bpm": 128,
+   "pc": null,
+   "mode": null,
+   "dur": 13.151
+  },
+  {
+   "name": "@outroficial_Drum_Loop_Plata_90_Bpm.wav",
+   "cat": "drumloop",
+   "bpm": 90,
+   "pc": null,
+   "mode": null,
+   "dur": 10.435
   },
   {
    "name": "_Voage_Lead_Loop_144BPM_F#m.wav",
@@ -281,6 +425,22 @@
    "pc": null,
    "mode": null,
    "dur": 13.714
+  },
+  {
+   "name": "AA50_Snare_Fire.wav",
+   "cat": "snare",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 7.385
+  },
+  {
+   "name": "AA52_Kick_Heavy.wav",
+   "cat": "kick",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 21.333
   },
   {
    "name": "AAD69_PAD_Dmin_140bpm_35.wav",
@@ -331,6 +491,14 @@
    "dur": 10.667
   },
   {
+   "name": "Absence_120bpm_Drumloop_A#m.wav",
+   "cat": "other",
+   "bpm": 120,
+   "pc": 10,
+   "mode": "minor",
+   "dur": 17.455
+  },
+  {
    "name": "Acoustic_Guitar14_KeyDm_150bpm.wav",
    "cat": "guitar",
    "bpm": 150,
@@ -363,6 +531,62 @@
    "dur": 16.0
   },
   {
+   "name": "AMV_AH_110_vocals_processed_loop_revelation_Cm.wav",
+   "cat": "vocal",
+   "bpm": 110,
+   "pc": 0,
+   "mode": "minor",
+   "dur": 21.818
+  },
+  {
+   "name": "AMV_AH_120_drums_loop_temptation.wav",
+   "cat": "other",
+   "bpm": 120,
+   "pc": null,
+   "mode": null,
+   "dur": 15.0
+  },
+  {
+   "name": "AMV_AH_144_piano_loop_gooddays_Em.wav",
+   "cat": "piano",
+   "bpm": 144,
+   "pc": 4,
+   "mode": "minor",
+   "dur": 10.105
+  },
+  {
+   "name": "AMV_AH_90_drums_loop_tender.wav",
+   "cat": "other",
+   "bpm": 90,
+   "pc": null,
+   "mode": null,
+   "dur": 20.0
+  },
+  {
+   "name": "AMV_RBRG_102_guitar_loop_gambia_alt_melody_Am.wav",
+   "cat": "guitar",
+   "bpm": 102,
+   "pc": 9,
+   "mode": "minor",
+   "dur": 13.333
+  },
+  {
+   "name": "AMV_RNBK3_100_piano_loop_blimp_C#.wav",
+   "cat": "piano",
+   "bpm": 100,
+   "pc": null,
+   "mode": null,
+   "dur": 13.714
+  },
+  {
+   "name": "AMV_RNBK_104_piano_loop_onlyyou_A#m.wav",
+   "cat": "piano",
+   "bpm": 104,
+   "pc": 10,
+   "mode": "minor",
+   "dur": 10.435
+  },
+  {
    "name": "Animal bpm 82-Piano.wav",
    "cat": "piano",
    "bpm": 82,
@@ -387,6 +611,22 @@
    "dur": 18.4
   },
   {
+   "name": "Bell_Melody_1_Dark_(Rapture)_Dminor_128bpm.wav",
+   "cat": "synth",
+   "bpm": 128,
+   "pc": null,
+   "mode": null,
+   "dur": 19.592
+  },
+  {
+   "name": "BG_might know_75bpm_Cmin_vox.wav",
+   "cat": "other",
+   "bpm": 75,
+   "pc": null,
+   "mode": null,
+   "dur": 19.2
+  },
+  {
    "name": "BNG_DPH_Synth_155BPM_Cm_Flow.wav",
    "cat": "synth",
    "bpm": 155,
@@ -395,12 +635,44 @@
    "dur": 25.263
   },
   {
+   "name": "BNG_VEL_145_Arp_Loop_Am_Moon.wav",
+   "cat": "arp",
+   "bpm": 145,
+   "pc": null,
+   "mode": null,
+   "dur": 8.421
+  },
+  {
    "name": "BonusBeats_04_90bpm.wav",
    "cat": "other",
    "bpm": 90,
    "pc": null,
    "mode": null,
    "dur": 26.667
+  },
+  {
+   "name": "BR_GL_Violin_Loop_Hip-Hop_03_90_A#m.wav",
+   "cat": "other",
+   "bpm": null,
+   "pc": 10,
+   "mode": "minor",
+   "dur": 20.211
+  },
+  {
+   "name": "BSP_Antagonist_Guitar_Lead_136bpm_Fm.wav",
+   "cat": "guitar",
+   "bpm": 136,
+   "pc": 5,
+   "mode": "minor",
+   "dur": 30.0
+  },
+  {
+   "name": "BT_GS_HipHop_Boombap_Violin_Loop_90bpm_06_Cm.wav",
+   "cat": "other",
+   "bpm": 90,
+   "pc": 0,
+   "mode": "minor",
+   "dur": 11.294
   },
   {
    "name": "BTL1-Pad-Granular_160bpm_Gb.wav",
@@ -443,12 +715,60 @@
    "dur": 1.0
   },
   {
+   "name": "Chocolate_96_Dm_Vox.wav",
+   "cat": "other",
+   "bpm": 96,
+   "pc": null,
+   "mode": null,
+   "dur": 27.429
+  },
+  {
+   "name": "CI_Electric_Guitar_Riff_Cmin_120bpm.wav",
+   "cat": "guitar",
+   "bpm": 120,
+   "pc": null,
+   "mode": null,
+   "dur": 80.842
+  },
+  {
+   "name": "CL_GS_Piano_Loop_03_91_Bmin.wav",
+   "cat": "piano",
+   "bpm": null,
+   "pc": 11,
+   "mode": "minor",
+   "dur": 13.714
+  },
+  {
    "name": "CLSLS_Melody_Lowrider 137BPM Gm.wav",
    "cat": "synth",
    "bpm": 137,
    "pc": 7,
    "mode": "minor",
    "dur": 15.484
+  },
+  {
+   "name": "Colors_Scratch_Vocal_C#m_90BPM.wav",
+   "cat": "vocal",
+   "bpm": 90,
+   "pc": null,
+   "mode": null,
+   "dur": 16.0
+  },
+  {
+   "name": "Control_Interlude_Songstarter_Cmin_120bpm.wav",
+   "cat": "other",
+   "bpm": 120,
+   "pc": null,
+   "mode": null,
+   "dur": 16.0
+  },
+  {
+   "name": "CR_ROAR_98bpm_FULL_DRUM_LOOPS.wav",
+   "cat": "drumloop",
+   "bpm": 98,
+   "pc": null,
+   "mode": null,
+   "dur": 19.2
   },
   {
    "name": "CS_DR_synth_lake_melody_Amin_140bpm.wav",
@@ -483,6 +803,22 @@
    "dur": 6.857
   },
   {
+   "name": "CV_GL_Vocal_Loop_02_90_Am.wav",
+   "cat": "vocal",
+   "bpm": null,
+   "pc": 9,
+   "mode": "minor",
+   "dur": 0.345
+  },
+  {
+   "name": "CV_GL_Vocal_Loop_03_89_Fm.wav",
+   "cat": "vocal",
+   "bpm": null,
+   "pc": 5,
+   "mode": "minor",
+   "dur": 10.435
+  },
+  {
    "name": "Cymbal_01.wav",
    "cat": "crash",
    "bpm": null,
@@ -508,7 +844,7 @@
   },
   {
    "name": "DIVA_Phantom_Vocal_12_90BPM_WET.wav",
-   "cat": "other",
+   "cat": "vocal",
    "bpm": 90,
    "pc": null,
    "mode": null,
@@ -523,12 +859,52 @@
    "dur": 21.333
   },
   {
+   "name": "Efecto_Flame-Audio_LaPasion_Strings_Loop_Bm_Violin_Verse_100BPM.wav",
+   "cat": "other",
+   "bpm": 100,
+   "pc": null,
+   "mode": null,
+   "dur": 36.0
+  },
+  {
+   "name": "Efecto_Flame-Audio_Mondeo_Vocal_Loop_Am_Mondeo_120BPM.wav",
+   "cat": "vocal",
+   "bpm": 120,
+   "pc": null,
+   "mode": null,
+   "dur": 32.0
+  },
+  {
+   "name": "Elemn_MCT_808_Bass_Loop_03_Emin_140bpm.wav",
+   "cat": "b808",
+   "bpm": 140,
+   "pc": null,
+   "mode": null,
+   "dur": 13.333
+  },
+  {
    "name": "Elevate_5_Texture_92bpm_Ebmaj.wav",
    "cat": "pad",
    "bpm": 92,
    "pc": 3,
    "mode": "major",
    "dur": 13.714
+  },
+  {
+   "name": "enjoi_vocal_o2i5bxn4.wav",
+   "cat": "vocal",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 116.565
+  },
+  {
+   "name": "enjoi_vocal_ua3pm85d.wav",
+   "cat": "vocal",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 116.565
   },
   {
    "name": "ES8D_Trap_808_C_boomin.wav",
@@ -563,12 +939,76 @@
    "dur": 4.0
   },
   {
+   "name": "EWS_Drum_Full_loop_85BPM.wav",
+   "cat": "other",
+   "bpm": 85,
+   "pc": null,
+   "mode": null,
+   "dur": 25.6
+  },
+  {
+   "name": "EWS_Guitar_Lead_Melody_Romantic_A_Minor_95BPM.wav",
+   "cat": "guitar",
+   "bpm": 95,
+   "pc": null,
+   "mode": null,
+   "dur": 16.0
+  },
+  {
+   "name": "EWS_Guitar_Rythm_Happy_Latin_Ab_Minor_90BPM.wav",
+   "cat": "guitar",
+   "bpm": 90,
+   "pc": null,
+   "mode": null,
+   "dur": 36.0
+  },
+  {
+   "name": "EWS_Keys_Piano_smooth_E_Minor_87BPM.wav",
+   "cat": "piano",
+   "bpm": 87,
+   "pc": null,
+   "mode": null,
+   "dur": 25.6
+  },
+  {
+   "name": "EWS_Synth_Plucked_Chords_Lead melody_Sad_Dark_Latin_Bb_Minor_88BPM.wav",
+   "cat": "pluck",
+   "bpm": 88,
+   "pc": null,
+   "mode": null,
+   "dur": 13.714
+  },
+  {
+   "name": "EWS_Vocal_Atmospheric_Sad_Dark_Full_RnB_Trap_Ab_Minor_140BPM.wav",
+   "cat": "vocal",
+   "bpm": 140,
+   "pc": null,
+   "mode": null,
+   "dur": 25.6
+  },
+  {
+   "name": "FA_DD_02_DRY_138BPM_Emin_808.wav",
+   "cat": "b808",
+   "bpm": 138,
+   "pc": null,
+   "mode": null,
+   "dur": 16.552
+  },
+  {
    "name": "FA_RR_02_808.wav",
    "cat": "b808",
    "bpm": null,
    "pc": null,
    "mode": null,
    "dur": 1.264
+  },
+  {
+   "name": "FL_Epiano_Chords_F#min_120bpm.wav",
+   "cat": "piano",
+   "bpm": 120,
+   "pc": null,
+   "mode": null,
+   "dur": 33.684
   },
   {
    "name": "FL_HRS_Kit05_Synth_Loop_Melody_Harpsichord_Degraded_140_Em.wav",
@@ -579,12 +1019,28 @@
    "dur": 23.478
   },
   {
+   "name": "GN_String_Ensemble_D#min_68bpm.wav",
+   "cat": "other",
+   "bpm": 68,
+   "pc": null,
+   "mode": null,
+   "dur": 20.0
+  },
+  {
    "name": "Good Vibes_Ambient Lead BPM140 Amaj Happy Mellow.wav",
    "cat": "synth",
    "bpm": 140,
    "pc": 9,
    "mode": "major",
    "dur": 6.667
+  },
+  {
+   "name": "GS_BUBBLE_CHOIR_120_FMIN.wav",
+   "cat": "other",
+   "bpm": 120,
+   "pc": null,
+   "mode": null,
+   "dur": 32.0
   },
   {
    "name": "Guitar 3 DRY_(2BEBECITA5)_KeyEm_190.wav",
@@ -625,6 +1081,30 @@
    "pc": null,
    "mode": null,
    "dur": 8.214
+  },
+  {
+   "name": "HH3.wav",
+   "cat": "other",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 12.0
+  },
+  {
+   "name": "HL_Piano_Chords_F#min_78bpm.wav",
+   "cat": "piano",
+   "bpm": 78,
+   "pc": null,
+   "mode": null,
+   "dur": 59.077
+  },
+  {
+   "name": "horizon -  80 bpm em - Songstarter.wav",
+   "cat": "other",
+   "bpm": 80,
+   "pc": null,
+   "mode": null,
+   "dur": 13.714
   },
   {
    "name": "HRBA_latin_drill_trap_melody_loop_145_C#m_lost in you guitar.wav",
@@ -715,6 +1195,110 @@
    "dur": 0.5
   },
   {
+   "name": "jade_tree_exclusive_future_boom_bap_drums_vol_2_drum_loop_filtered_head_bop_70bpm.wav",
+   "cat": "drumloop",
+   "bpm": 70,
+   "pc": null,
+   "mode": null,
+   "dur": 11.034
+  },
+  {
+   "name": "JJP_AT_flute_117BPM_Cm.wav",
+   "cat": "brass",
+   "bpm": 117,
+   "pc": 0,
+   "mode": "minor",
+   "dur": 12.308
+  },
+  {
+   "name": "JL_DKSP_golden_piano_melody_dark_90bpm_Gm.wav",
+   "cat": "piano",
+   "bpm": 90,
+   "pc": 7,
+   "mode": "minor",
+   "dur": 13.688
+  },
+  {
+   "name": "JL_Y2KE_01_Electric_Guitar_riff_G#m_92bpm.wav",
+   "cat": "guitar",
+   "bpm": 92,
+   "pc": null,
+   "mode": null,
+   "dur": 32.0
+  },
+  {
+   "name": "JL_Y2KE_01_Electric_keys_melody_stack_G#m_92bpm.wav",
+   "cat": "piano",
+   "bpm": 92,
+   "pc": null,
+   "mode": null,
+   "dur": 21.818
+  },
+  {
+   "name": "JL_Y2KE_05_Drums_top_snare_multi_100bpm.wav",
+   "cat": "snare",
+   "bpm": 100,
+   "pc": null,
+   "mode": null,
+   "dur": 22.069
+  },
+  {
+   "name": "JL_Y2KE_07_Synth_pad_melody_Gm_114bpm.wav",
+   "cat": "pad",
+   "bpm": 114,
+   "pc": null,
+   "mode": null,
+   "dur": 36.0
+  },
+  {
+   "name": "JL_Y2KE_10_Synth_songstarter_melody_multi_Gm_104bpm.wav",
+   "cat": "synth",
+   "bpm": 104,
+   "pc": null,
+   "mode": null,
+   "dur": 21.333
+  },
+  {
+   "name": "JL_Y2KE_one-shot_FX_scratch.wav",
+   "cat": "other",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 6.857
+  },
+  {
+   "name": "JLE_Dark Mode_bullet_Bm_146_Piano_Melody.wav",
+   "cat": "piano",
+   "bpm": 146,
+   "pc": null,
+   "mode": null,
+   "dur": 27.429
+  },
+  {
+   "name": "JLE_TCATL_01_Bass_808_Bm_144bpm.wav",
+   "cat": "b808",
+   "bpm": 144,
+   "pc": null,
+   "mode": null,
+   "dur": 30.0
+  },
+  {
+   "name": "JLE_TCATL_01_HiHat_144bpm.wav",
+   "cat": "hat",
+   "bpm": 144,
+   "pc": null,
+   "mode": null,
+   "dur": 10.909
+  },
+  {
+   "name": "JLE_TCATL_02_Synth_melody_stack_F#m_156bpm.wav",
+   "cat": "synth",
+   "bpm": 156,
+   "pc": null,
+   "mode": null,
+   "dur": 16.0
+  },
+  {
    "name": "JSN_Lemon_Arp_Loop_A#m_105BPM.wav",
    "cat": "arp",
    "bpm": 105,
@@ -723,12 +1307,28 @@
    "dur": 15.118
   },
   {
+   "name": "K_HT_808_D#m_140bpm.wav",
+   "cat": "b808",
+   "bpm": 140,
+   "pc": null,
+   "mode": null,
+   "dur": 21.333
+  },
+  {
    "name": "Kick_26.wav",
    "cat": "kick",
    "bpm": null,
    "pc": null,
    "mode": null,
    "dur": 1.892
+  },
+  {
+   "name": "Kit_4_Bass_Loop_808_1_Amin_140BPM.wav",
+   "cat": "b808",
+   "bpm": 140,
+   "pc": null,
+   "mode": null,
+   "dur": 12.387
   },
   {
    "name": "KK_Guitar_16_95bpm.wav",
@@ -763,6 +1363,30 @@
    "dur": 7.385
   },
   {
+   "name": "L_GB_One_Shot_808_Daddy_C.wav",
+   "cat": "b808",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 13.521
+  },
+  {
+   "name": "L_GB_One_Shot_808_Grande_G.wav",
+   "cat": "b808",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 9.412
+  },
+  {
+   "name": "L_TSS_808_Sub_Kit 09_keyF#min_125bpm.wav",
+   "cat": "b808",
+   "bpm": 125,
+   "pc": 6,
+   "mode": "minor",
+   "dur": 9.897
+  },
+  {
    "name": "LANDR_Trumpet_Love_keyEbMaj_75bpm.wav",
    "cat": "brass",
    "bpm": 75,
@@ -777,6 +1401,14 @@
    "pc": 11,
    "mode": "minor",
    "dur": 9.143
+  },
+  {
+   "name": "Lead_Melody_Dark_(Weary)_Dminor_125bpm.wav",
+   "cat": "synth",
+   "bpm": 125,
+   "pc": null,
+   "mode": null,
+   "dur": 21.333
   },
   {
    "name": "LFPR_110_Amaj_Tienes_Classic_Guitar_2.wav",
@@ -835,6 +1467,46 @@
    "dur": 12.0
   },
   {
+   "name": "MA Crown_Nylon_Acoustic_Guitar_Loop_Dry 02 - 141 BPM Dmin.wav",
+   "cat": "guitar",
+   "bpm": 141,
+   "pc": 2,
+   "mode": "minor",
+   "dur": 9.796
+  },
+  {
+   "name": "MA_Wilt_Electric_Guitar_Loop_49_95 BPM_Fmaj.wav",
+   "cat": "guitar",
+   "bpm": 95,
+   "pc": 5,
+   "mode": "major",
+   "dur": 16.0
+  },
+  {
+   "name": "MCT2_Drums_HiHats_130BPM.wav",
+   "cat": "hat",
+   "bpm": 130,
+   "pc": null,
+   "mode": null,
+   "dur": 9.6
+  },
+  {
+   "name": "MCT_Drums_140BPM.wav",
+   "cat": "other",
+   "bpm": 140,
+   "pc": null,
+   "mode": null,
+   "dur": 66.977
+  },
+  {
+   "name": "Medelin_808_102bpm_D#m.wav",
+   "cat": "b808",
+   "bpm": 102,
+   "pc": 3,
+   "mode": "minor",
+   "dur": 12.549
+  },
+  {
    "name": "MetaVinyl_Texture_Gladiator Dawn.wav",
    "cat": "pad",
    "bpm": null,
@@ -875,6 +1547,14 @@
    "dur": 24.194
   },
   {
+   "name": "mydemo.wav",
+   "cat": "other",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 20.0
+  },
+  {
    "name": "NC_12_Guitar_95bpm_D_Electric.wav",
    "cat": "guitar",
    "bpm": 95,
@@ -889,6 +1569,22 @@
    "pc": null,
    "mode": null,
    "dur": 27.429
+  },
+  {
+   "name": "OD_kick_5.wav",
+   "cat": "kick",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 21.333
+  },
+  {
+   "name": "OD_snare_5.wav",
+   "cat": "snare",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 21.573
   },
   {
    "name": "OXYGEN_FLH_Kit02_Synth_Loop_Pad_Cm_85.wav",
@@ -915,6 +1611,22 @@
    "dur": 19.2
   },
   {
+   "name": "Piano_Arpeggio_Sauce_Pitched_Down_Dark_(Backdoor)_Cminor_130bpm.wav",
+   "cat": "piano",
+   "bpm": 130,
+   "pc": null,
+   "mode": null,
+   "dur": 13.714
+  },
+  {
+   "name": "Piano_Melody_Dark_(Drippin)_Bminor_128bpm.wav",
+   "cat": "piano",
+   "bpm": 128,
+   "pc": null,
+   "mode": null,
+   "dur": 26.667
+  },
+  {
    "name": "PM_DNR_135_Guitar_Loop_Vibe_Dm.wav",
    "cat": "guitar",
    "bpm": 135,
@@ -931,12 +1643,68 @@
    "dur": 16.696
   },
   {
+   "name": "Polar_Opposites_Vocal_Adlibs_A#m_84BPM.wav",
+   "cat": "vocal",
+   "bpm": 84,
+   "pc": null,
+   "mode": null,
+   "dur": 16.552
+  },
+  {
+   "name": "Prosound Sonics 'Intentions' 01_RnB_Melody_Loop_92bpm_Gm - vocal.wav",
+   "cat": "vocal",
+   "bpm": 92,
+   "pc": 7,
+   "mode": "minor",
+   "dur": 17.455
+  },
+  {
    "name": "PW1_123_Dm_Dominant_Chords_Guitar.wav",
    "cat": "guitar",
    "bpm": 123,
    "pc": null,
    "mode": null,
    "dur": 10.0
+  },
+  {
+   "name": "RD_GS_07_Trumpet_Hip-Hop_Loop_88_Fm.wav",
+   "cat": "brass",
+   "bpm": null,
+   "pc": 5,
+   "mode": "minor",
+   "dur": 22.326
+  },
+  {
+   "name": "RnB Noir_Wavetick_120_Synth_Loop_Em_Pad_Distance.wav",
+   "cat": "pad",
+   "bpm": 120,
+   "pc": null,
+   "mode": null,
+   "dur": 22.326
+  },
+  {
+   "name": "RPSTR_FA_Coke_Choir_Bm_120BPM.wav",
+   "cat": "other",
+   "bpm": 120,
+   "pc": null,
+   "mode": null,
+   "dur": 51.0
+  },
+  {
+   "name": "RR_GS_Hip-Hop_Drums_Full_Loop_91bpm_02.wav",
+   "cat": "other",
+   "bpm": 91,
+   "pc": null,
+   "mode": null,
+   "dur": 18.462
+  },
+  {
+   "name": "RR_GS_Hip-Hop_Vocal_Loop_90bpm_06_A#min.wav",
+   "cat": "vocal",
+   "bpm": 90,
+   "pc": 10,
+   "mode": "minor",
+   "dur": 21.333
   },
   {
    "name": "RS_LVR_Chillvibes_Pad_84_A#min.wav",
@@ -947,12 +1715,36 @@
    "dur": 9.6
   },
   {
+   "name": "SCY005_06_Bass_808_Loop_KeyEm_155bpm_01.wav",
+   "cat": "b808",
+   "bpm": 155,
+   "pc": 4,
+   "mode": "minor",
+   "dur": 13.333
+  },
+  {
    "name": "SCY007_ 03_808_C.wav",
    "cat": "b808",
    "bpm": null,
    "pc": null,
    "mode": null,
    "dur": 1.385
+  },
+  {
+   "name": "SCY007_01_Bass_808_Loop_KeyCm_153bpm_01.wav",
+   "cat": "b808",
+   "bpm": 153,
+   "pc": 0,
+   "mode": "minor",
+   "dur": 13.913
+  },
+  {
+   "name": "SCY128_02_Drums_Full_Loop_130bpm_01.wav",
+   "cat": "other",
+   "bpm": 130,
+   "pc": null,
+   "mode": null,
+   "dur": 30.72
   },
   {
    "name": "SG Spanish 1 160bpm Gm Spanish Guitar.wav",
@@ -1075,12 +1867,44 @@
    "dur": 125.858
   },
   {
+   "name": "Steady_Vocals_Em_98Bpm.wav",
+   "cat": "vocal",
+   "bpm": 98,
+   "pc": null,
+   "mode": null,
+   "dur": 6.857
+  },
+  {
+   "name": "Suspension_Texture_Chopped_Pad_Am_144BPM.wav",
+   "cat": "pad",
+   "bpm": 144,
+   "pc": null,
+   "mode": null,
+   "dur": 21.333
+  },
+  {
    "name": "Synth_Melody_keCMaj_75bpm.wav",
    "cat": "synth",
    "bpm": 75,
    "pc": null,
    "mode": null,
    "dur": 30.4
+  },
+  {
+   "name": "TB5-808_156bpm_Fm.wav",
+   "cat": "b808",
+   "bpm": 156,
+   "pc": 5,
+   "mode": "minor",
+   "dur": 6.857
+  },
+  {
+   "name": "TLH_FA_Clay_Vocal_C#m_108BPM.wav",
+   "cat": "vocal",
+   "bpm": 108,
+   "pc": null,
+   "mode": null,
+   "dur": 16.0
   },
   {
    "name": "tmpdz1_ru1y.wav",
@@ -1123,6 +1947,30 @@
    "dur": 3.273
   },
   {
+   "name": "TRKTRN_SB_Kick_One_Shot_Cosmic.wav",
+   "cat": "kick",
+   "bpm": null,
+   "pc": null,
+   "mode": null,
+   "dur": 18.462
+  },
+  {
+   "name": "TSL_TR1_Wet_Melody_Saxophone_88bpm_Cm_Loop.wav",
+   "cat": "brass",
+   "bpm": 88,
+   "pc": null,
+   "mode": null,
+   "dur": 8.421
+  },
+  {
+   "name": "TSL_TR2_Wet_Drums_80Bpm_Loop_6.wav",
+   "cat": "other",
+   "bpm": 80,
+   "pc": null,
+   "mode": null,
+   "dur": 18.462
+  },
+  {
    "name": "UR_DREAMWAY_808_One_Shot_07_C.wav",
    "cat": "b808",
    "bpm": null,
@@ -1147,12 +1995,28 @@
    "dur": 13.714
   },
   {
+   "name": "Vocal_Loop_Hip-Hop_152bpm_Amin.wav",
+   "cat": "vocal",
+   "bpm": 152,
+   "pc": 9,
+   "mode": "minor",
+   "dur": 7.385
+  },
+  {
    "name": "Warm 808 324.wav",
    "cat": "b808",
    "bpm": null,
    "pc": null,
    "mode": null,
    "dur": 2.149
+  },
+  {
+   "name": "WY_Acoustic_Guitar_Strums_G#min_95bpm.wav",
+   "cat": "guitar",
+   "bpm": 95,
+   "pc": null,
+   "mode": null,
+   "dur": 68.571
   }
  ]
 }

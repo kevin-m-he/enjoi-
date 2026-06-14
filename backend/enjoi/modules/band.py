@@ -687,6 +687,10 @@ def _render_soundfont(plan: dict, progress: Callable | None = None) -> np.ndarra
 
 import re as _re
 
+# Roomy/spacey descriptors → avoid for clean, punchy drums (esp. kicks).
+_ROOMY_RE = _re.compile(r"room|verb|cosmic|\bhall|\bspace|ambient|church|washed|"
+                        r"distant|\bwide\b|ethereal|dreamy", _re.I)
+
 _LIB_CACHE: dict = {}
 
 
@@ -1028,12 +1032,12 @@ _LOOP_GENRE = {
     "folk": dict(harm=("guitar", "piano"), gtr=("acoustic", "classical"), feel="folk", drum=0.38, b808=0.0, color="pad"),
     "acoustic": dict(harm=("guitar", "piano"), gtr=("acoustic", "classical", "nylon"), feel="folk", drum=0.35, b808=0.0, color="pad"),
     "singer-songwriter": dict(harm=("piano", "guitar"), gtr=("acoustic", "classical"), feel="folk", drum=0.38, b808=0.0, color="pad"),
-    "lofi": dict(harm=("piano", "guitar"), gtr=("lofi", "classical", "sadboi"), feel="lofi", drum=0.55, b808=0.45, color="pad"),
-    "latin": dict(harm=("guitar",), gtr=("spanish", "latin", "classical"), feel="latin", drum=0.75, b808=0.6, color="pad"),
-    "pop": dict(harm=("piano", "guitar"), gtr=("acoustic", "classic"), feel="pop", drum=0.78, b808=0.6, color="pad"),
-    "r&b": dict(harm=("piano",), gtr=("classic",), feel="rnb", drum=0.62, b808=0.75, color="pad"),
-    "soul": dict(harm=("piano",), gtr=("classic",), feel="rnb", drum=0.6, b808=0.65, color="pad"),
-    "gospel": dict(harm=("piano",), gtr=("classic",), feel="rnb", drum=0.6, b808=0.5, color="pad"),
+    "lofi": dict(harm=("piano", "guitar"), gtr=("lofi", "classical", "sadboi"), feel="lofi", drum=0.55, b808=0.7, color="pad"),
+    "latin": dict(harm=("guitar",), gtr=("spanish", "latin", "classical"), feel="latin", drum=0.75, b808=0.7, color="pad"),
+    "pop": dict(harm=("piano", "guitar"), gtr=("acoustic", "classic"), feel="pop", drum=0.78, b808=0.9, color="pad"),
+    "r&b": dict(harm=("piano",), gtr=("classic",), feel="rnb", drum=0.62, b808=0.95, color="pad"),
+    "soul": dict(harm=("piano",), gtr=("classic",), feel="rnb", drum=0.6, b808=0.85, color="pad"),
+    "gospel": dict(harm=("piano",), gtr=("classic",), feel="rnb", drum=0.6, b808=0.7, color="pad"),
     "hip hop": dict(harm=("piano", "guitar"), gtr=("spanish", "trap", "latin"), feel="trap", drum=1.0, b808=1.0, color="synth"),
     "rap": dict(harm=("piano", "guitar"), gtr=("spanish", "trap"), feel="trap", drum=1.0, b808=1.0, color="synth"),
     "trap": dict(harm=("piano", "guitar"), gtr=("spanish", "trap", "latin"), feel="trap", drum=1.0, b808=1.0, color="synth"),
@@ -1226,6 +1230,10 @@ def _program_drums(index, ctx, n_total, intensity, rng, feel) -> np.ndarray | No
     if the essential one-shots aren't in the library (caller loops instead)."""
     def one(cat):
         c = [s for s in index if s.get("oneshot") and s["cat"] == cat]
+        # Prefer clean/tight hits: drop roomy/spacey one-shots (a "Cosmic" kick
+        # where a basic punchy kick belongs) unless that's all there is.
+        clean = [s for s in c if not _ROOMY_RE.search(s["name"])]
+        c = clean or c
         if not c:
             return None
         try:
@@ -1334,10 +1342,12 @@ def _render_loops(plan: dict, progress) -> np.ndarray:
     except Exception as exc:
         log.warning("drums omitted: %s", exc)
 
-    # --- bass / 808
+    # --- bass / 808 — prefer a smooth full 808 LOOP (a melodic bassline, the
+    # "Kanye" sub) over a single tiled one-shot note.
     if recipe["b808"] > 0.05:
         _p(progress, 0.6, "Dropping the bass…")
-        b = _pick(index, ("b808",), tonic_pc, ctx.bpm, rng)
+        b = _pick(index, ("b808",), tonic_pc, ctx.bpm, rng,
+                  prefer=("loop", "bass"), avoid=("one shot", "one_shot", "oneshot"))
         stem = _safe_warp_tile(b, ctx, tonic_pc, n_total, gain=recipe["b808"])
         if stem is not None:
             stems["bass"] = stem
