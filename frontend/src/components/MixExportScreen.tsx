@@ -33,7 +33,7 @@ export default function MixExportScreen() {
 
   const [retune, setRetune] = useState(35);
   const [preset, setPreset] = useState('pop');
-  const [loudness, setLoudness] = useState('streaming');
+  const [loudness, setLoudness] = useState('loud');
   const [title, setTitle] = useState('');
   const [artist, setArtist] = useState('');
   const [stems, setStems] = useState(false);
