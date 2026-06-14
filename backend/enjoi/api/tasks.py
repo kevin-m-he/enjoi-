@@ -71,10 +71,11 @@ def task_generate(project: Project, similarity: int, progress: ProgressFn) -> di
     from ..modules.similarity import build_generation_plan
 
     progress(0.02, "Building generation plan")
-    # Salt the seed with the project id so re-picking a reference (a fresh
-    # project) generates a NEW instrumental instead of an identical one, while
-    # this project stays reproducible across re-renders.
-    plan = build_generation_plan(profile, similarity, salt=project.id)
+    # Salt the seed with the project id + a fresh random nonce so EVERY generate
+    # (including a regenerate on the same project) produces a NEW instrumental.
+    import secrets
+    plan = build_generation_plan(profile, similarity,
+                                 salt=f"{project.id}:{secrets.token_hex(4)}")
     out = generate_instrumental(project, plan, subprogress(progress, 0.05, 0.97))
 
     project.update_state(

@@ -752,12 +752,15 @@ def _parse_bpm(name: str):
     return None
 
 
-def _estimate_loop_bpm(y: np.ndarray, target_bpm: float):
-    """When a loop's tempo isn't in its filename, assume it's a clean whole-bar
-    loop (1/2/4/8/16 bars, 4/4) and pick the interpretation needing the LEAST
-    time-stretch to hit the target — so it always lands on the grid, never off."""
+def _measure_bpm(y: np.ndarray, target_bpm: float):
+    """MEASURE a loop's tempo from the AUDIO itself (never the filename — labels
+    are often wrong). Sample-pack loops are clean whole-bar loops (1/2/4/8/16
+    bars, 4/4), so the audio LENGTH determines the tempo for each bar-count; we
+    pick the interpretation needing the least stretch to hit the target, so the
+    loop always lands exactly on the grid. (Beat-trackers octave-error on loops;
+    the length is unambiguous.)"""
     dur = float(y.shape[-1]) / SR
-    if dur < 0.25:
+    if dur < 0.4:
         return None
     best, best_diff = None, 1e9
     for bars in (1, 2, 4, 8, 16):
@@ -841,17 +844,30 @@ def _categorize(name: str) -> str:
     return "other"
 
 
+def _canonical_bpm(dur: float):
+    """Tempo of a clean whole-bar loop of this DURATION (4/4) — the bar-count
+    interpretation closest to a typical ~120 BPM. Length-based (measured from the
+    audio), so it ignores the often-wrong filename label."""
+    if not dur or dur < 0.4:
+        return None
+    cands = [bars * 4 * 60.0 / dur for bars in (1, 2, 4, 8, 16)
+             if 55.0 <= bars * 4 * 60.0 / dur <= 200.0]
+    return round(min(cands, key=lambda b: abs(b - 120.0)), 1) if cands else None
+
+
 def _entry(name: str, dur: float, path: str | None) -> dict:
     kp = _parse_key(name)
-    bpm = _parse_bpm(name)
     cat = _categorize(name)
+    # One-shot drum hits (a single short hit) have no loop tempo; everything else
+    # gets a tempo MEASURED from its audio length (not the filename).
+    is_oneshot = dur < 2.5 and cat in (
+        "kick", "snare", "hat", "openhat", "clap", "crash", "tom", "perc")
+    bpm = None if is_oneshot else _canonical_bpm(dur)
     return {
         "name": name, "path": path, "cat": cat, "bpm": bpm,
         "pc": kp[0] if kp else None, "mode": kp[1] if kp else None,
         "dur": round(float(dur), 3),
-        # one-shots (a single hit) get sequenced into a beat, not looped.
-        "oneshot": dur < 2.5 and bpm is None and cat in
-        ("kick", "snare", "hat", "openhat", "clap", "crash", "tom", "perc"),
+        "oneshot": is_oneshot,
     }
 
 
@@ -984,7 +1000,9 @@ def _warp(y: np.ndarray, native_bpm, target_bpm: float, semitones: float,
           is_drum: bool) -> np.ndarray:
     import librosa
 
-    nb = native_bpm if native_bpm else _estimate_loop_bpm(y, target_bpm)
+    # Source tempo is MEASURED from the audio (the entry's length-based BPM, or a
+    # direct measure as fallback) — never the filename — then resampled to grid.
+    nb = native_bpm if native_bpm else _measure_bpm(y, target_bpm)
     if nb:
         rate = target_bpm / _fold_bpm(nb, target_bpm)
         if abs(rate - 1.0) > 0.01:
@@ -1043,11 +1061,9 @@ def _pick(index, cats, target_pc, target_bpm, rng, prefer=(), avoid=(), mode=Non
         for kw in avoid:
             if kw in nm:
                 sc -= 2.5
-        if s["bpm"]:
+        if s["bpm"]:   # prefer loops near the target tempo → least time-stretch
             ratio = target_bpm / _fold_bpm(s["bpm"], target_bpm)
-            sc -= abs(math.log2(max(ratio, 1e-3))) * 4.0  # penalize stretch
-        else:
-            sc -= 1.2  # unlabeled tempo (estimated at warp) — prefer a known BPM
+            sc -= abs(math.log2(max(ratio, 1e-3))) * 4.0
         # --- key / mode: the heart of "complementary tones" ---
         if s["pc"] is not None and target_pc is not None:
             sc -= abs(_semitones_to(target_pc, s["pc"])) * (0.7 if keyed else 0.25)
