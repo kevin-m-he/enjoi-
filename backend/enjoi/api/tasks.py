@@ -141,6 +141,30 @@ def _arrange(project: Project, progress: ProgressFn) -> dict:
     return arrangement
 
 
+_GENRE_TO_MIX = {
+    "pop": "pop", "edm": "pop", "dance": "pop", "house": "pop",
+    "r&b": "rnb", "soul": "rnb", "gospel": "rnb", "lofi": "rnb",
+    "hip hop": "hiphop", "rap": "hiphop", "trap": "hiphop",
+    "rock": "rock", "metal": "rock",
+    "folk": "acoustic", "country": "acoustic", "acoustic": "acoustic",
+    "singer-songwriter": "acoustic", "jazz": "acoustic", "blues": "acoustic",
+}
+
+
+def _auto_mix_preset(project: Project) -> str:
+    """Pick a mix flavor (mix.PRESETS key) from the reference's detected genre."""
+    try:
+        if project.reference_profile_path.exists():
+            prof = read_json(project.reference_profile_path)
+            for tag in prof.get("genre_tags") or []:
+                key = _GENRE_TO_MIX.get(str(tag).lower().strip())
+                if key:
+                    return key
+    except Exception:
+        pass
+    return "pop"
+
+
 def task_render(
     project: Project,
     retune_speed: int,
@@ -155,6 +179,12 @@ def task_render(
         raise NotReadyError("Nothing to render — arrange vocals on an instrumental first.")
     grid = read_json(project.grid_path)
     arrangement = read_json(project.arrangement_path)
+
+    # Mixing/mastering is automatic — the UI no longer asks the user. "auto"
+    # picks a mix flavor from the detected genre; loudness defaults to a loud,
+    # competitive master.
+    if str(preset).lower() == "auto":
+        preset = _auto_mix_preset(project)
 
     from ..modules.export import export_song
     from ..modules.mix import mix_and_master

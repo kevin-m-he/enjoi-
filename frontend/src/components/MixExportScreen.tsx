@@ -7,20 +7,6 @@ import EmptyState from './EmptyState';
 import JobProgressBar from './JobProgressBar';
 import Slider from './Slider';
 
-const MIX_PRESETS: [string, string][] = [
-  ['pop', 'Pop'],
-  ['hiphop', 'Hip-Hop / Trap'],
-  ['rnb', 'R&B'],
-  ['rock', 'Rock'],
-  ['acoustic', 'Acoustic'],
-];
-
-const LOUDNESS_PRESETS: [string, string][] = [
-  ['streaming', 'Streaming — −14 LUFS'],
-  ['loud', 'Loud — −9 LUFS'],
-  ['dynamic', 'Dynamic — −16 LUFS'],
-];
-
 const selectClasses =
   'w-full rounded-brutal border-3 border-ink bg-foam px-3 py-2.5 text-sm font-semibold text-ink outline-none shadow-brutal-sm transition focus:bg-foam-50';
 
@@ -32,8 +18,6 @@ export default function MixExportScreen() {
   const startRender = useStore((s) => s.startRender);
 
   const [retune, setRetune] = useState(35);
-  const [preset, setPreset] = useState('pop');
-  const [loudness, setLoudness] = useState('loud');
   const [title, setTitle] = useState('');
   const [artist, setArtist] = useState('');
   const [stems, setStems] = useState(false);
@@ -54,8 +38,8 @@ export default function MixExportScreen() {
   const build = () =>
     void startRender({
       retune_speed: retune,
-      preset,
-      loudness_preset: loudness,
+      preset: 'auto',
+      loudness_preset: 'loud',
       title: title.trim() || undefined,
       artist: artist.trim() || undefined,
       include_stems: stems,
@@ -68,61 +52,24 @@ export default function MixExportScreen() {
           Mix it. <span className="text-pink">Ship it.</span>
         </h2>
         <p className="mx-auto mt-2 max-w-xl text-sm font-medium text-prussian-700">
-          Autotune, mix and master your song to streaming loudness — then export WAV + MP3.
+          Autotune, mix and master happen automatically — then export WAV + MP3.
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card title="Vocal tuning">
-          <Slider
-            label="Autotune strength"
-            value={retune}
-            min={0}
-            max={100}
-            step={1}
-            onChange={setRetune}
-            format={(x) => `${x}`}
-            leftLabel="Natural (corrective)"
-            rightLabel="Hard tune (T-Pain)"
-            disabled={rendering}
-          />
-        </Card>
-
-        <Card title="Mix & loudness">
-          <div className="space-y-3">
-            <div>
-              <label className="mb-1 block text-xs font-bold uppercase text-prussian-700">Mix preset</label>
-              <select
-                className={selectClasses}
-                value={preset}
-                onChange={(e) => setPreset(e.target.value)}
-                disabled={rendering}
-              >
-                {MIX_PRESETS.map(([val, label]) => (
-                  <option key={val} value={val}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-bold uppercase text-prussian-700">Master loudness</label>
-              <select
-                className={selectClasses}
-                value={loudness}
-                onChange={(e) => setLoudness(e.target.value)}
-                disabled={rendering}
-              >
-                {LOUDNESS_PRESETS.map(([val, label]) => (
-                  <option key={val} value={val}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </Card>
-      </div>
+      <Card title="Vocal tuning" subtitle="The only knob you need — everything else is automatic">
+        <Slider
+          label="Autotune strength"
+          value={retune}
+          min={0}
+          max={100}
+          step={1}
+          onChange={setRetune}
+          format={(x) => `${x}`}
+          leftLabel="Natural (corrective)"
+          rightLabel="Hard tune (T-Pain)"
+          disabled={rendering}
+        />
+      </Card>
 
       <Card title="Song details">
         <div className="grid gap-4 sm:grid-cols-2">

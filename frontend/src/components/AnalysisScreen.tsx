@@ -1,4 +1,4 @@
-import { fmtTime, keyName, sectionColor } from '../lib/format';
+import { clamp, fmtTime, keyName, sectionColor } from '../lib/format';
 import type { StructureSection } from '../lib/types';
 import { useStore } from '../store';
 import Card from './Card';
@@ -76,6 +76,13 @@ function EnergySparkline({ values }: { values: number[] }) {
   );
 }
 
+function tempoFeel(bpm: number): string {
+  if (bpm < 80) return 'Laid-back';
+  if (bpm < 104) return 'Mid-tempo';
+  if (bpm <= 132) return 'Upbeat';
+  return 'Driving';
+}
+
 export default function AnalysisScreen() {
   const project = useStore((s) => s.project);
   const profile = useStore((s) => s.profile);
@@ -114,7 +121,7 @@ export default function AnalysisScreen() {
             job={job}
             onRetry={() => void retryReference()}
             prominent
-            hint="Downloading audio for analysis, extracting BPM, key, structure, energy and instrumentation…"
+            hint="Analyzing your track — extracting BPM, key, time signature, structure and energy…"
           />
           {!job && (
             <EmptyState
@@ -162,53 +169,58 @@ export default function AnalysisScreen() {
             <Card title="Energy curve" subtitle="Per-bar RMS">
               <EnergySparkline values={profile.energy_curve.per_bar_rms} />
             </Card>
-            <Card title="Instrumentation" subtitle="Per-instrument activity (Demucs profile)">
-              <div className="space-y-3">
-                {Object.entries(profile.instrumentation)
-                  .filter(([name]) => name !== 'melodic')
-                  .sort((a, b) => b[1] - a[1])
-                  .map(([name, v]) => (
-                  <div key={name}>
-                    <div className="mb-1 flex justify-between text-xs font-bold text-prussian-700">
-                      <span className="capitalize">{name}</span>
-                      <span className="tabular-nums">{Math.round(v * 100)}%</span>
+            <Card title="Track DNA" subtitle="Derived straight from the measured audio">
+              {(() => {
+                const rms = profile.energy_curve.per_bar_rms;
+                const mean = rms.length
+                  ? rms.reduce((a, b) => a + b, 0) / rms.length
+                  : 0;
+                const peak = Math.max(...rms, 1e-9);
+                // Normalize the mean RMS against the track's own peak so quiet and
+                // loud masters both map sensibly onto 0–100.
+                const energyPct = Math.round(clamp((mean / peak) * 100, 0, 100));
+                return (
+                  <div className="space-y-4">
+                    <div>
+                      <div className="mb-1.5 flex items-center justify-between text-xs font-extrabold uppercase tracking-wide text-prussian-700">
+                        <span>Energy</span>
+                        <span className="tabular-nums">{energyPct}%</span>
+                      </div>
+                      <div className="h-4 overflow-hidden rounded-sm border-2 border-ink bg-washi-200">
+                        <div
+                          className="h-full bg-pink"
+                          style={{ width: `${energyPct}%` }}
+                        />
+                      </div>
+                      <div className="mt-1 flex justify-between text-[11px] font-semibold text-prussian-700/70">
+                        <span>Calm</span>
+                        <span>Energetic</span>
+                      </div>
                     </div>
-                    <div className="h-3 overflow-hidden rounded-sm border-2 border-ink bg-washi-200">
-                      <div
-                        className="h-full bg-prussian"
-                        style={{ width: `${Math.min(Math.max(v, 0), 1) * 100}%` }}
-                      />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-sm border-2 border-ink bg-washi-200 p-3">
+                        <p className="text-[11px] font-extrabold uppercase tracking-wide text-prussian-900">
+                          Tempo feel
+                        </p>
+                        <p className="mt-0.5 font-display text-lg font-black text-ink">
+                          {tempoFeel(profile.bpm)}
+                        </p>
+                      </div>
+                      <div className="rounded-sm border-2 border-ink bg-washi-200 p-3">
+                        <p className="text-[11px] font-extrabold uppercase tracking-wide text-prussian-900">
+                          Sections
+                        </p>
+                        <p className="mt-0.5 font-display text-lg font-black text-ink">
+                          {profile.structure.length}{' '}
+                          {profile.structure.length === 1 ? 'part' : 'parts'}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
+                );
+              })()}
             </Card>
           </div>
-
-          <Card title="Genre & mood">
-            <div className="flex flex-wrap gap-2">
-              {profile.genre_tags.map((g) => (
-                <span
-                  key={`g-${g}`}
-                  className="rounded-sm border-2 border-ink bg-pink px-3 py-1 text-xs font-extrabold uppercase text-white"
-                >
-                  {g}
-                </span>
-              ))}
-              {profile.mood_tags.map((m) => (
-                <span
-                  key={`m-${m}`}
-                  className="rounded-sm border-2 border-ink bg-foam px-3 py-1 text-xs font-extrabold uppercase text-ink"
-                >
-                  {m}
-                </span>
-              ))}
-              <span className="rounded-sm border-2 border-ink bg-washi-200 px-3 py-1 text-xs font-bold text-prussian-700">
-                groove: {profile.groove.pattern_class} · swing{' '}
-                {Math.round(profile.groove.swing * 100)}%
-              </span>
-            </div>
-          </Card>
 
           <div className="flex justify-end pb-6">
             <button

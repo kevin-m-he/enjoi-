@@ -762,6 +762,11 @@ def _parse_key(name: str):
 
 def _categorize(name: str) -> str:
     n = name.lower()
+    # Vocal/adlib samples must NEVER be used as instruments. A vocal one-shot
+    # (e.g. "LatinTrapVocals…808") landing on the bass or a clap sounds awful —
+    # it reads as a random laugh/chant. The "vocal" cat is in no selection pool.
+    if _re.search(r'vocal|\bvox\b|acapell|adlib|ad-lib|\bchant|\blaugh|\bahh|\bohh|\bspeech', n):
+        return "vocal"
     if "full drum" in n or "drum loop" in n or "drum_loop" in n or "full_drum" in n:
         return "drumloop"
     if "808" in n:
@@ -1075,11 +1080,14 @@ _LAYER = {
                 "bridge": 0.5, "outro": 0.12, "inst": 0.7},
 }
 _LOOP_MIX = {  # (gain_db, highpass_hz, pan, reference_rms) — consistent balance
-    "drums": (-1.0, 30.0, 0.0, 0.18),
-    "bass": (-2.0, 30.0, 0.0, 0.15),
-    "harmony": (-5.0, 110.0, -0.12, 0.12),
+    # Requested hierarchy: 808 loud (low-end anchor); melody clearly ABOVE the
+    # hats; kick = 2nd quietest; hat = quietest. The drum-bus is pulled back and
+    # its internal kick/hat are lowered (see _program_drums / _loop_drums levels).
+    "drums": (-3.5, 30.0, 0.0, 0.14),
+    "bass": (0.0, 28.0, 0.0, 0.22),            # 808 = loud
+    "harmony": (-3.5, 110.0, -0.12, 0.14),     # melody sits above the hats
     "color": (-12.0, 220.0, 0.25, 0.055),
-    "texture": (-13.0, 320.0, -0.28, 0.045),  # opposite pan to color → width
+    "texture": (-13.0, 320.0, -0.28, 0.045),   # opposite pan to color → width
 }
 
 
@@ -1115,11 +1123,19 @@ def _place(bus: np.ndarray, start: int, sig: np.ndarray, gain: float) -> None:
 
 
 def _drum_pattern(feel: str, bpb: int, bars: int, intensity: float, rng) -> list[tuple]:
-    """Per-bar (beat, role, velocity) events for a genre groove."""
+    """Per-bar (beat, role, velocity) events for a genre groove. Velocities are
+    humanized and an 8th-note snare roll fills the last bar of each 8-bar phrase,
+    so the beat breathes/leads into sections instead of looping robotically."""
     ev: list[tuple] = []
     mid = bpb // 2
+
+    def vh(v: float) -> float:  # humanize velocity a touch
+        return float(max(0.18, min(1.0, v * rng.uniform(0.86, 1.0))))
+
     for bar in range(bars):
         b0 = bar * bpb
+        # last bar of an 8-bar phrase (not the very last bar) → a fill
+        is_fill = bpb >= 4 and intensity > 0.5 and (bar % 8 == 7) and bar < bars - 1
         kicks, snares, claps = [], [], []
         hat_div = 0.5
         if feel == "trap":
@@ -1151,19 +1167,28 @@ def _drum_pattern(feel: str, bpb: int, bars: int, intensity: float, rng) -> list
             if rng.random() < 0.5:
                 kicks.append(float(mid + 0.5 if mid + 0.5 < bpb else bpb - 0.5))
             snares = [1.0, 3.0] if bpb >= 4 else [float(mid)]
+        if is_fill:  # keep the early backbeat, clear the back half for the roll
+            snares = [s for s in snares if s < mid]
+            claps = [c for c in claps if c < mid]
         for k in kicks:
-            ev.append((b0 + k, "kick", 0.95))
+            ev.append((b0 + k, "kick", vh(0.95)))
         for s in snares:
-            ev.append((b0 + s, "snare", 0.85))
+            ev.append((b0 + s, "snare", vh(0.85)))
         for c in claps:
-            ev.append((b0 + c, "clap", 0.82))
+            ev.append((b0 + c, "clap", vh(0.82)))
         if not (feel == "folk" and intensity < 0.4):
             p = 0.0
             while p < bpb - 1e-9:
-                ev.append((b0 + p, "hat", 0.5 if p % 1.0 == 0 else 0.4))
+                acc = 0.55 if p % 1.0 == 0 else 0.36  # accent the down/quarter
+                ev.append((b0 + p, "hat", vh(acc)))
                 p += hat_div
-        if bar % 8 == 0 and intensity > 0.6:
-            ev.append((b0, "crash", 0.4))
+        if bar % 8 == 0 and intensity > 0.6:  # crash lands the start of a phrase
+            ev.append((b0, "crash", vh(0.45)))
+        if is_fill:  # rising 8th-note snare roll over the final two beats
+            roll = [mid + 0.5, mid + 1.0, mid + 1.5, bpb - 1.0, bpb - 0.5]
+            roll = [s for s in roll if 0 <= s < bpb]
+            for i, s in enumerate(roll):
+                ev.append((b0 + s, "snare", vh(0.40 + 0.11 * i)))
     return ev
 
 
@@ -1206,7 +1231,8 @@ def _program_drums(index, ctx, n_total, intensity, rng, feel) -> np.ndarray | No
     clap_s = clap if clap is not None else snare
     samples = {"kick": kick, "snare": snare_s, "clap": clap_s,
                "hat": hat, "crash": crash}
-    lvl = {"kick": 1.0, "snare": 0.92, "clap": 0.82, "hat": 0.4, "crash": 0.5}
+    # hat = quietest, kick = 2nd quietest; snare/clap carry the backbeat.
+    lvl = {"kick": 0.55, "snare": 0.85, "clap": 0.78, "hat": 0.30, "crash": 0.5}
     bus = np.zeros((2, n_total), dtype=np.float32)
     bars = sum(s["bars"] for s in ctx.structure)
     spb, bpb = ctx.spb, ctx.bpb
@@ -1230,8 +1256,8 @@ def _loop_drums(index, ctx, n_total, intensity, rng) -> np.ndarray:
         st = _safe_warp_tile(full, ctx, None, n_total, is_drum=True)
         if st is not None:
             bus += st
-    for cats, lvl in [(("kick",), 1.0), (("snare",), 0.9), (("hat",), 0.4),
-                      (("clap",), 0.7)]:
+    for cats, lvl in [(("kick",), 0.55), (("snare",), 0.85), (("hat",), 0.30),
+                      (("clap",), 0.75)]:
         s = _pick(index, cats, None, ctx.bpm, rng)
         st = _safe_warp_tile(s, ctx, None, n_total, is_drum=True, gain=lvl)
         if st is not None:
