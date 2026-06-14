@@ -590,9 +590,9 @@ def _master(bus: np.ndarray, loudness_lufs: float, progress) -> np.ndarray:
     # (>74% <200 Hz). Tame sub-mud, add presence + air. Gentle, genre-agnostic.
     x = _hpf(x, 28.0)                       # clear true sub rumble
     x = _shelf(x, 130.0, -1.2, high=False)  # light sub control (keep low weight)
-    x = _shelf(x, 250.0, +1.2, high=False)  # low-mid warmth — moody body
-    x = _shelf(x, 3000.0, +0.6, high=True)  # a touch of presence, not glassy
-    x = _shelf(x, 9000.0, +1.5, high=True)  # subtle air, NOT the old sparkle
+    x = _shelf(x, 240.0, +1.0, high=False)  # a little low-mid warmth/body
+    x = _shelf(x, 3000.0, +1.2, high=True)  # presence/clarity
+    x = _shelf(x, 9000.0, +2.5, high=True)  # crisp modern air (balanced, not harsh)
 
     # --- glue compression (bus cohesion) ----------------------------------
     pedalboard = deps.optional_import("pedalboard")
@@ -987,18 +987,12 @@ def _semitones_to(target_pc, native_pc) -> float:
     return float(((target_pc - native_pc + 6) % 12) - 6)
 
 
-# Default mood bias: modern releases lean moody/dark, not bright/"happy". We
-# nudge EVERY loop pick toward moody timbres and away from cheery ones (the #1
-# product note was "too cheery, happy strings everywhere").
-_MOODY_KW = ("dark", "moody", "sad", "melanchol", "minor", "lofi", "lo-fi", "lo fi",
-             "night", "deep", "emotional", "emo", "cold", "drill", "trap", "ambient",
-             "cinematic", "haunt", "dusk", "rain", "noir", "vintage", "soul")
-_CHEERY_KW = ("happy", "uplift", "bright", "cheer", "sunny", "feelgood", "feel good",
-              "feel-good", "joy", "summer", "tropical", "festive", "playful", "cute")
-
-
-def _pick(index, cats, target_pc, target_bpm, rng, prefer=(), avoid=(), mode=None):
-    pool = [s for s in index if s["cat"] in cats]
+def _pick(index, cats, target_pc, target_bpm, rng, prefer=(), avoid=(), mode=None,
+          exclude=()):
+    """Pick a loop by musical fit: least time-stretch, closest key, matching mode.
+    No mood bias — just what sounds right for the song. `exclude` = names to skip
+    (so a second pick differs from the first, for verse/chorus variety)."""
+    pool = [s for s in index if s["cat"] in cats and s["name"] not in exclude]
     if not pool:
         return None
     def score(s):
@@ -1010,29 +1004,16 @@ def _pick(index, cats, target_pc, target_bpm, rng, prefer=(), avoid=(), mode=Non
         for kw in avoid:
             if kw in nm:
                 sc -= 2.5
-        # universal mood bias toward moody, away from cheery
-        for kw in _MOODY_KW:
-            if kw in nm:
-                sc += 1.3
-                break
-        for kw in _CHEERY_KW:
-            if kw in nm:
-                sc -= 1.8
-                break
         if s["bpm"]:
             ratio = target_bpm / _fold_bpm(s["bpm"], target_bpm)
             sc -= abs(math.log2(max(ratio, 1e-3))) * 4.0  # penalize stretch
         if s["pc"] is not None and target_pc is not None:
             sc -= abs(_semitones_to(target_pc, s["pc"])) * 0.25
-        if mode and s["mode"] == mode:
+        if mode and s["mode"] == mode:   # match the song's major/minor (key-correct)
             sc += 0.8
-        # minor-key material reads as moodier — prefer it a bit, more so when the
-        # song itself is minor.
-        if s["mode"] == "minor":
-            sc += 1.4 if mode == "minor" else 0.7
         return sc
     pool.sort(key=score, reverse=True)
-    top = pool[: max(1, min(3, len(pool)))]
+    top = pool[: max(1, min(4, len(pool)))]   # a little wider pool → more variety
     return rng.choice(top)
 
 
@@ -1110,6 +1091,38 @@ def _section_envelope(role: str, ctx: _Ctx, n_total: int) -> np.ndarray:
         kernel = np.ones(ramp, dtype=np.float32) / ramp
         env = np.convolve(env, kernel, mode="same").astype(np.float32)
     return env
+
+
+# Section labels that get the "B" (chorus/hook) melody; the rest get "A" (verse).
+_CHORUS_LABELS = {"chorus", "prechorus", "inst"}
+
+
+def _sectioned_stem(a: np.ndarray | None, b: np.ndarray | None, ctx: _Ctx,
+                    n_total: int) -> np.ndarray | None:
+    """Play warped loop ``a`` in verse-type sections and ``b`` in chorus-type
+    sections (with a short equal-power crossfade at each boundary), so the melody
+    actually CHANGES between verse and chorus instead of looping identically."""
+    if a is None:
+        return b
+    if b is None:
+        return a
+    out = a.copy()
+    xf = max(int(0.05 * SR), 1)
+    cursor, prev = 0, a
+    for sec in ctx.structure:
+        seclen = int(sec["bars"] * ctx.bpb * ctx.spb * SR)
+        end = min(n_total, cursor + seclen)
+        src = b if sec["label"] in _CHORUS_LABELS else a
+        if end > cursor:
+            out[:, cursor:end] = src[:, cursor:end]
+        if cursor >= xf and src is not prev:  # smooth the melody change at the seam
+            lo, hi = cursor - xf, min(cursor + xf, n_total)
+            t = np.linspace(0.0, np.pi / 2, hi - lo, dtype=np.float32)
+            out[:, lo:hi] = prev[:, lo:hi] * np.cos(t) ** 2 + src[:, lo:hi] * np.sin(t) ** 2
+        prev, cursor = src, end
+        if cursor >= n_total:
+            break
+    return out
 
 
 def _place(bus: np.ndarray, start: int, sig: np.ndarray, gain: float) -> None:
@@ -1232,7 +1245,7 @@ def _program_drums(index, ctx, n_total, intensity, rng, feel) -> np.ndarray | No
     samples = {"kick": kick, "snare": snare_s, "clap": clap_s,
                "hat": hat, "crash": crash}
     # hat = quietest, kick = 2nd quietest; snare/clap carry the backbeat.
-    lvl = {"kick": 0.55, "snare": 0.85, "clap": 0.78, "hat": 0.30, "crash": 0.5}
+    lvl = {"kick": 0.48, "snare": 0.85, "clap": 0.78, "hat": 0.30, "crash": 0.5}
     bus = np.zeros((2, n_total), dtype=np.float32)
     bars = sum(s["bars"] for s in ctx.structure)
     spb, bpb = ctx.spb, ctx.bpb
@@ -1256,7 +1269,7 @@ def _loop_drums(index, ctx, n_total, intensity, rng) -> np.ndarray:
         st = _safe_warp_tile(full, ctx, None, n_total, is_drum=True)
         if st is not None:
             bus += st
-    for cats, lvl in [(("kick",), 0.55), (("snare",), 0.85), (("hat",), 0.30),
+    for cats, lvl in [(("kick",), 0.48), (("snare",), 0.85), (("hat",), 0.30),
                       (("clap",), 0.75)]:
         s = _pick(index, cats, None, ctx.bpm, rng)
         st = _safe_warp_tile(s, ctx, None, n_total, is_drum=True, gain=lvl)
@@ -1288,18 +1301,24 @@ def _render_loops(plan: dict, progress) -> np.ndarray:
     # Every layer is OPTIONAL: if its sample can't be selected/fetched/loaded it
     # is simply omitted (not a fatal error). We only fail if NOTHING loads.
 
-    # --- harmonic bed: ONE instrument (piano or guitar), the song's foundation
+    # --- harmonic bed: a verse loop + a DIFFERENT chorus loop (same instrument
+    # family, same key) so the melody changes across the song's sections.
     _p(progress, 0.15, "Laying the harmonic bed…")
-    harmony = None
+    harmony = h_cats = h_prefer = None
     for h in recipe.get("harm", ("piano", "guitar")):
-        cats = ("piano",) if h == "piano" else ("guitar",) if h == "guitar" else ("synth",)
-        prefer = recipe.get("gtr", ()) if h == "guitar" else ()
-        harmony = _pick(index, cats, tonic_pc, ctx.bpm, rng, prefer=prefer, mode=mode)
+        h_cats = ("piano",) if h == "piano" else ("guitar",) if h == "guitar" else ("synth",)
+        h_prefer = recipe.get("gtr", ()) if h == "guitar" else ()
+        harmony = _pick(index, h_cats, tonic_pc, ctx.bpm, rng, prefer=h_prefer, mode=mode)
         if harmony:
             break
     if harmony is None:
-        harmony = _pick(index, ("piano", "guitar", "synth", "pluck"), tonic_pc, ctx.bpm, rng)
-    stem = _safe_warp_tile(harmony, ctx, tonic_pc, n_total)
+        h_cats, h_prefer = ("piano", "guitar", "synth", "pluck"), ()
+        harmony = _pick(index, h_cats, tonic_pc, ctx.bpm, rng)
+    harmony_b = _pick(index, h_cats, tonic_pc, ctx.bpm, rng, prefer=h_prefer or (),
+                      mode=mode, exclude={harmony["name"]} if harmony else ())
+    a_stem = _safe_warp_tile(harmony, ctx, tonic_pc, n_total)
+    b_stem = _safe_warp_tile(harmony_b, ctx, tonic_pc, n_total)
+    stem = _sectioned_stem(a_stem, b_stem, ctx, n_total)
     if stem is not None:
         stems["harmony"] = stem
     else:
