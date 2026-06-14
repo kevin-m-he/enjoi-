@@ -15,6 +15,7 @@ imported inside functions / via deps.optional_import.
 from __future__ import annotations
 
 import math
+import os
 from pathlib import Path
 from typing import Callable
 
@@ -156,8 +157,13 @@ def _transcribe(wav_path: Path, progress: ProgressFn) -> tuple[str, list[dict]]:
             device, compute_type = "cuda", "float16"
         else:
             device, compute_type = "cpu", "int8"
+        # Model size is env-configurable so a CPU server can use the faster
+        # "base" while a GPU box uses "small"/"medium" for accuracy.
+        model_size = os.environ.get(
+            "ENJOI_WHISPER_MODEL", "small" if deps.gpu_available() else "base"
+        ).strip() or "base"
         model = fw.WhisperModel(
-            "small",
+            model_size,
             device=device,
             compute_type=compute_type,
             download_root=str(config.models_dir()),

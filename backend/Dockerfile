@@ -18,7 +18,8 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     ENJOI_HOST=0.0.0.0 \
     ENJOI_PORT=8723 \
-    ENJOI_DATA_DIR=/data
+    ENJOI_DATA_DIR=/data \
+    ENJOI_WHISPER_MODEL=base
 
 WORKDIR /app/backend
 
@@ -27,7 +28,11 @@ WORKDIR /app/backend
 COPY backend/requirements-core.txt ./requirements-core.txt
 RUN pip install --upgrade pip \
     && pip install -r requirements-core.txt \
-    && pip install --no-deps "tinysoundfont>=0.3"
+    && pip install --no-deps "tinysoundfont>=0.3" \
+    && pip install "faster-whisper>=1.0"
+# faster-whisper enables lyric transcription + word-accurate vocal segmentation
+# on the CPU box (CTranslate2, int8). The "base" model (~140 MB) downloads to
+# /data/models on first use; override size with ENJOI_WHISPER_MODEL.
 # --no-deps: tinysoundfont's only runtime dep is pyaudio, which it imports lazily
 # ONLY for live audio playback (synth.py). The server renders offline, never plays
 # live, so pyaudio is unused — and it has no Linux wheel (would force a source

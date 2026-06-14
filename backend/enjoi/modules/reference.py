@@ -98,10 +98,20 @@ def _decode_validate_analyze(project: Project, src_path: Path, meta: dict,
         pass
 
     p(0.28, "Preparing analysis…")
+    # Estimate tempo on the FULL-RATE audio — the downsampled (22 kHz) onset
+    # envelope is unreliable for tempo (it latched a busy subdivision, reading a
+    # 96 BPM song as 129). 44.1 kHz resolves the true pulse far more reliably.
+    try:
+        import librosa
+        oe44 = librosa.onset.onset_strength(y=y44.astype(np.float32),
+                                            sr=config.SAMPLE_RATE, hop_length=_HOP)
+        tempo_hint = _estimate_tempo(oe44, config.SAMPLE_RATE, _HOP)
+    except Exception:
+        tempo_hint = None
     y = np.ascontiguousarray(core_audio.resample(y44, config.SAMPLE_RATE, _SR), dtype=np.float32)
     del y44
 
-    profile = _analyze_audio(y, _SR, duration, ref_wav, meta, p)  # 0.30 – 0.99
+    profile = _analyze_audio(y, _SR, duration, ref_wav, meta, p, tempo_hint)  # 0.30 – 0.99
     profile["source"] = {
         "title": meta.get("title", ""),
         "channel": meta.get("channel", ""),
@@ -224,13 +234,13 @@ def _download_reference(project: Project, url: str, p: ProgressFn) -> tuple[dict
 # ---------------------------------------------------------------------------
 
 def _analyze_audio(y: np.ndarray, sr: int, duration: float, ref_wav: Path,
-                   meta: dict, p: ProgressFn) -> dict:
+                   meta: dict, p: ProgressFn, tempo_hint: float | None = None) -> dict:
     """Full MIR analysis of mono audio ``y`` at ``sr``; timestamps in real seconds."""
     import librosa
 
     p(0.30, "Tracking beats…")
     onset_env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=_HOP)
-    bpm, beat_times = _track_beats(y, sr, onset_env, ref_wav)
+    bpm, beat_times = _track_beats(y, sr, onset_env, ref_wav, tempo_hint)
 
     # Shared spectral workspace (one STFT for everything downstream).
     D = librosa.stft(y, n_fft=_NFFT, hop_length=_HOP)
@@ -348,31 +358,72 @@ def _octave_correct(bpm: float) -> float:
     return bpm
 
 
-def _track_beats(y: np.ndarray, sr: int, onset_env: np.ndarray,
-                 ref_wav: Path) -> tuple[float, np.ndarray]:
-    """Beat grid: madmom DBN tracker if available, else librosa beat_track."""
+def _estimate_tempo(onset_env: np.ndarray, sr: int, hop: int) -> float:
+    """Tempo from the global onset autocorrelation, choosing among MUSICAL
+    multiples of the strongest pulse with a gentle bias toward the 'head-nod'
+    range (~70–135 BPM). This avoids the classic failure where a busy hi-hat
+    subdivision makes a 96 BPM song read as 129 (a 4/3 multiple — which plain
+    octave-folding can't fix)."""
     import librosa
 
-    beat_times = _madmom_beats(ref_wav)
-    if beat_times is None:
-        tempo, frames = librosa.beat.beat_track(
-            onset_envelope=onset_env, sr=sr, hop_length=_HOP, start_bpm=120.0, trim=False
-        )
-        t0 = float(np.atleast_1d(tempo)[0]) if np.size(tempo) else 0.0
-        corrected = _octave_correct(t0)
-        if abs(corrected - t0) > 1.0:  # re-track with the corrected tempo hint
-            tempo, frames = librosa.beat.beat_track(
-                onset_envelope=onset_env, sr=sr, hop_length=_HOP, start_bpm=corrected, trim=False
-            )
-        beat_times = librosa.frames_to_time(frames, sr=sr, hop_length=_HOP)
+    oac = librosa.autocorrelate(onset_env - float(np.mean(onset_env)), max_size=onset_env.size)
+    oac = np.clip(oac, 0.0, None)
+    if oac.size < 3:
+        return 120.0
+    lags = np.arange(1, oac.size)
+    bpms = 60.0 * sr / (hop * lags)
+    m = (bpms >= 50.0) & (bpms <= 200.0)
+    bpms, strength = bpms[m], oac[1:][m]
+    if strength.size == 0:
+        return 120.0
+    order = np.argsort(bpms)
+    b_sorted, s_sorted = bpms[order], strength[order]
+    base = float(bpms[int(np.argmax(strength))])
+    cands = {round(base * r, 2)
+             for r in (1 / 3, 1 / 2, 2 / 3, 3 / 4, 1.0, 4 / 3, 3 / 2, 2.0, 3.0)
+             if 60.0 <= base * r <= 190.0}
+    cands.add(round(base, 2))
 
-    beat_times = np.asarray(beat_times, dtype=float)
-    if len(beat_times) < 4:  # degenerate audio — synthesize a 120 BPM grid
+    def support(b: float) -> float:
+        return float(np.interp(b, b_sorted, s_sorted))
+
+    def prior(b: float) -> float:  # broad bias to 70–135, gently penalize extremes
+        return float(np.exp(-((b - 104.0) ** 2) / (2.0 * 33.0 ** 2)))
+
+    return float(max(cands, key=lambda b: support(b) * (0.45 + prior(b))))
+
+
+def _track_beats(y: np.ndarray, sr: int, onset_env: np.ndarray,
+                 ref_wav: Path, tempo_hint: float | None = None) -> tuple[float, np.ndarray]:
+    """Beat grid: madmom DBN tracker if available, else librosa beat_track seeded
+    with a robust tempo estimate (the 44 kHz ``tempo_hint`` when supplied)."""
+    import librosa
+
+    madmom_beats = _madmom_beats(ref_wav)
+    t_est = float(tempo_hint) if (tempo_hint and tempo_hint > 0) else \
+        _estimate_tempo(onset_env, sr, _HOP)
+
+    if madmom_beats is not None:
+        beat_times = np.asarray(madmom_beats, dtype=float)
+        ibis = np.diff(beat_times)
+        ibis = ibis[ibis > 1e-3]
+        bpm = _octave_correct(60.0 / float(np.median(ibis))) if len(ibis) else t_est
+        return float(bpm), beat_times
+
+    _, frames = librosa.beat.beat_track(
+        onset_envelope=onset_env, sr=sr, hop_length=_HOP, start_bpm=t_est, trim=False
+    )
+    beat_times = np.asarray(librosa.frames_to_time(frames, sr=sr, hop_length=_HOP), dtype=float)
+    if len(beat_times) < 4:  # degenerate audio — synthesize a grid at the estimate
         end = max(len(y) / sr, 1.0)
-        beat_times = np.arange(0.0, end, 0.5)
+        beat_times = np.arange(0.0, end, 60.0 / max(t_est, 1.0))
+    # The estimate (esp. the 44 kHz hint) is the authoritative tempo; the DP
+    # tracker can still drift to a subdivision, so only trust its median IBI when
+    # it agrees with the estimate's octave — otherwise keep the estimate.
     ibis = np.diff(beat_times)
     ibis = ibis[ibis > 1e-3]
-    bpm = _octave_correct(60.0 / float(np.median(ibis))) if len(ibis) else 120.0
+    med = _octave_correct(60.0 / float(np.median(ibis))) if len(ibis) else t_est
+    bpm = t_est if abs(med - t_est) > 4.0 else med
     return float(bpm), beat_times
 
 
@@ -1029,19 +1080,19 @@ def _tags(meta: dict, bpm: float, key: dict, energy_mean: float,
     elif guitar >= 0.55 and other > guitar + 0.15 and drums >= 0.55 \
             and energy_mean >= 0.6:
         audio_genre = "rock"  # loud, distorted-leaning guitar + loud drums
-    elif organic >= 0.45 and not synthy and bpm <= 150:
-        # Acoustic/real-instrument led, not electronic → folk / country / acoustic.
-        if drums >= 0.3 and bass >= 0.3 and 80 <= bpm <= 150:
+    elif organic >= 0.5 and not synthy and bpm <= 150 and energy_mean < 0.72:
+        # Acoustic/real-instrument led, not electronic.
+        if swing >= 0.5 and energy_mean < 0.55:
+            audio_genre = "jazz"      # real swing + acoustic + relaxed only
+        elif drums >= 0.3 and bass >= 0.3 and 80 <= bpm <= 150:
             audio_genre = "country"   # full band, gentle backbeat
         else:
             audio_genre = "folk"      # sparse guitar/piano + voice
-    elif bass >= 0.3 and 60 <= bpm <= 116 and energy_mean < 0.62 \
-            and (gmode == "minor" or not synthy):
-        audio_genre = "r&b"   # smooth, mid-tempo, bass-forward, often minor
-    elif synthy and bpm >= 100:
+    elif bass >= 0.3 and 60 <= bpm <= 118:
+        # Mid-tempo, bass-forward, electronic/smooth → R&B (minor/chill) or pop.
+        audio_genre = "r&b" if (gmode == "minor" or energy_mean < 0.6) else "pop"
+    elif bpm >= 100:
         audio_genre = "pop"
-    elif swing >= 0.45:
-        audio_genre = "jazz"
 
     if not genres:
         if audio_genre:
