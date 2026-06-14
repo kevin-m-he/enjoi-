@@ -51,9 +51,13 @@ TP_CEILING_DB = -1.0
 # (the #1 product complaint is drowned vocals). We measure both buses and set
 # the vocal level RELATIVE to the instrumental so the lead sits in a modern,
 # lead-vocal-forward window above it.
-VOCAL_OVER_INSTR_LU = 3.0      # target: lead vocal this many LU above the instrumental
-VOCAL_OVER_INSTR_MIN = 2.0     # never let the lead sit below +2 LU over the instrumental
-VOCAL_OVER_INSTR_MAX = 4.0     # nor more than +4 LU (stays musical, not shouty)
+# Vocal sits just UNDER the lead melody: present and clear, but the melody leads.
+# Measured over the whole instrumental (melody is its loudest stem), so a small
+# positive offset keeps the vocal ~even-with / just-below the melody. Generous
+# range preserves artistic expression.
+VOCAL_OVER_INSTR_LU = 1.5      # target: lead vocal ~this many LU over the instrumental avg
+VOCAL_OVER_INSTR_MIN = 0.5     # never drowned
+VOCAL_OVER_INSTR_MAX = 3.0     # nor shouty
 VOCAL_STAGE_GAIN_LIMIT_DB = 18.0  # clamp the relative move so one bus can't run away
 
 # Preset flavors: small sensible variations per genre (spec 4.9).

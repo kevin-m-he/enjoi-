@@ -91,6 +91,17 @@ def process_vocal(project, uploaded_path: Path, progress: ProgressFn) -> dict:
     # ---- per-phrase features ---------------------------------------------------
     phrases = _phrase_features(audio, sr, spans, words, progress)
 
+    # Drop laughs / mistakes / non-sung noise so they're never placed in the song.
+    # Keep everything if the gate would leave too little to work with.
+    usable = [p for p in phrases if p.get("usable", True)]
+    if len(usable) >= max(2, len(phrases) // 2):
+        dropped = len(phrases) - len(usable)
+        phrases = usable
+        if dropped:
+            progress(0.93, f"Skipped {dropped} unusable take(s) (laughs/fumbles)")
+    for i, p in enumerate(phrases):  # re-index so phrase ids stay contiguous
+        p["id"] = i
+
     analysis = {
         "file": "vocal_raw.wav",
         "duration_sec": round(duration, 3),
@@ -391,11 +402,25 @@ def _phrase_features(
         else:
             pitch_height = 0.0
 
+        # --- musicality gate: skip laughs / fumbles / non-sung noise ---
+        # A laugh or vocal mistake is erratically pitched (big frame-to-frame
+        # jumps) and/or barely voiced; a sung/rapped line is more stable.
+        voiced_ratio = float(voiced.size) / max(int(f0.size), 1)
+        if voiced.size >= 4:
+            steps = 12.0 * np.log2(np.clip(voiced[1:], 1e-6, None)
+                                   / np.clip(voiced[:-1], 1e-6, None))
+            jitter = float(np.median(np.abs(steps)))
+        else:
+            jitter = 9.9 if voiced.size < 2 else 0.0
+        # generous: only reject clearly non-musical segments
+        usable = (voiced_ratio >= 0.18) and (jitter <= 2.6) and (max(f0_range, 0.0) <= 22.0)
+
         phrases.append({
             "id": k,
             "start": s,
             "end": e,
             "text": _words_in_span(words, s, e),
+            "usable": bool(usable),
             "features": {
                 "rms": round(float(rms_v), 4),
                 "f0_mean_hz": round(f0_mean, 1),
@@ -403,6 +428,8 @@ def _phrase_features(
                 "pitch_height": round(pitch_height, 3),
                 "vibrato": round(_vibrato(f0, hop_dur), 3),
                 "brightness": round(_brightness(seg, sr), 3),
+                "voiced_ratio": round(voiced_ratio, 3),
+                "pitch_jitter": round(jitter, 3),
             },
         })
     return phrases

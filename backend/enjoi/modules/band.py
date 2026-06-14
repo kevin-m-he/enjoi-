@@ -769,7 +769,8 @@ def _categorize(name: str) -> str:
     # Vocal/adlib samples must NEVER be used as instruments. A vocal one-shot
     # (e.g. "LatinTrapVocals…808") landing on the bass or a clap sounds awful —
     # it reads as a random laugh/chant. The "vocal" cat is in no selection pool.
-    if _re.search(r'vocal|\bvox\b|acapell|adlib|ad-lib|\bchant|\blaugh|\bahh|\bohh|\bspeech', n):
+    if _re.search(r'vocal|vox|acapell|adlib|ad-lib|\bchant|\blaugh|\bahh|\bohh|'
+                  r'\bspeech|choir|songstarter', n):
         return "vocal"
     if "full drum" in n or "drum loop" in n or "drum_loop" in n or "full_drum" in n:
         return "drumloop"
@@ -992,10 +993,11 @@ def _semitones_to(target_pc, native_pc) -> float:
 
 
 def _pick(index, cats, target_pc, target_bpm, rng, prefer=(), avoid=(), mode=None,
-          exclude=()):
+          exclude=(), keyed=False):
     """Pick a loop by musical fit: least time-stretch, closest key, matching mode.
-    No mood bias — just what sounds right for the song. `exclude` = names to skip
-    (so a second pick differs from the first, for verse/chorus variety)."""
+    `keyed=True` (melodic/bass layers) HARD-favors loops that share the song's key
+    and mode so everything sits in the same scale and complements — no clashes.
+    `exclude` = names to skip (so a 2nd pick differs, for verse/chorus variety)."""
     pool = [s for s in index if s["cat"] in cats and s["name"] not in exclude]
     if not pool:
         return None
@@ -1011,10 +1013,13 @@ def _pick(index, cats, target_pc, target_bpm, rng, prefer=(), avoid=(), mode=Non
         if s["bpm"]:
             ratio = target_bpm / _fold_bpm(s["bpm"], target_bpm)
             sc -= abs(math.log2(max(ratio, 1e-3))) * 4.0  # penalize stretch
+        # --- key / mode: the heart of "complementary tones" ---
         if s["pc"] is not None and target_pc is not None:
-            sc -= abs(_semitones_to(target_pc, s["pc"])) * 0.25
-        if mode and s["mode"] == mode:   # match the song's major/minor (key-correct)
-            sc += 0.8
+            sc -= abs(_semitones_to(target_pc, s["pc"])) * (0.7 if keyed else 0.25)
+        elif keyed:
+            sc -= 3.0  # melodic loop with no parseable key — can't be key-matched
+        if s["mode"] is not None and mode:
+            sc += 1.6 if s["mode"] == mode else (-2.2 if keyed else 0.0)  # mode clash
         return sc
     pool.sort(key=score, reverse=True)
     top = pool[: max(1, min(4, len(pool)))]   # a little wider pool → more variety
@@ -1065,14 +1070,13 @@ _LAYER = {
                 "bridge": 0.5, "outro": 0.12, "inst": 0.7},
 }
 _LOOP_MIX = {  # (gain_db, highpass_hz, pan, reference_rms) — consistent balance
-    # Requested hierarchy: 808 loud (low-end anchor); melody clearly ABOVE the
-    # hats; kick = 2nd quietest; hat = quietest. The drum-bus is pulled back and
-    # its internal kick/hat are lowered (see _program_drums / _loop_drums levels).
-    "drums": (-3.5, 30.0, 0.0, 0.14),
-    "bass": (0.0, 28.0, 0.0, 0.22),            # 808 = loud
-    "harmony": (-3.5, 110.0, -0.12, 0.14),     # melody sits above the hats
-    "color": (-12.0, 220.0, 0.25, 0.055),
-    "texture": (-13.0, 320.0, -0.28, 0.045),   # opposite pan to color → width
+    # Hierarchy: MELODY is the loudest element; 808 sits just under it (solid but
+    # a touch lower); then drums; kick = 2nd quietest; hat = quietest.
+    "drums": (-4.0, 30.0, 0.0, 0.13),
+    "bass": (-1.5, 28.0, 0.0, 0.18),           # 808 — solid, a little lower
+    "harmony": (-1.0, 110.0, -0.10, 0.18),     # MELODY = loudest
+    "color": (-11.0, 220.0, 0.25, 0.06),
+    "texture": (-12.0, 320.0, -0.28, 0.05),    # opposite pan to color → width
 }
 
 
@@ -1316,14 +1320,14 @@ def _render_loops(plan: dict, progress) -> np.ndarray:
     for h in recipe.get("harm", ("piano", "guitar")):
         h_cats = ("piano",) if h == "piano" else ("guitar",) if h == "guitar" else ("synth",)
         h_prefer = recipe.get("gtr", ()) if h == "guitar" else ()
-        harmony = _pick(index, h_cats, tonic_pc, ctx.bpm, rng, prefer=h_prefer, mode=mode)
+        harmony = _pick(index, h_cats, tonic_pc, ctx.bpm, rng, prefer=h_prefer, mode=mode, keyed=True)
         if harmony:
             break
     if harmony is None:
         h_cats, h_prefer = ("piano", "guitar", "synth", "pluck"), ()
-        harmony = _pick(index, h_cats, tonic_pc, ctx.bpm, rng)
+        harmony = _pick(index, h_cats, tonic_pc, ctx.bpm, rng, mode=mode, keyed=True)
     harmony_b = _pick(index, h_cats, tonic_pc, ctx.bpm, rng, prefer=h_prefer or (),
-                      mode=mode, exclude={harmony["name"]} if harmony else ())
+                      mode=mode, exclude={harmony["name"]} if harmony else (), keyed=True)
     a_stem = _safe_warp_tile(harmony, ctx, tonic_pc, n_total)
     b_stem = _safe_warp_tile(harmony_b, ctx, tonic_pc, n_total)
     stem = _sectioned_stem(a_stem, b_stem, ctx, n_total)
@@ -1347,7 +1351,7 @@ def _render_loops(plan: dict, progress) -> np.ndarray:
     if recipe["b808"] > 0.05:
         _p(progress, 0.6, "Dropping the bass…")
         b = _pick(index, ("b808",), tonic_pc, ctx.bpm, rng,
-                  prefer=("loop", "bass"), avoid=("one shot", "one_shot", "oneshot"))
+                  prefer=("loop", "bass"), avoid=("one shot", "one_shot", "oneshot"), keyed=True)
         stem = _safe_warp_tile(b, ctx, tonic_pc, n_total, gain=recipe["b808"])
         if stem is not None:
             stems["bass"] = stem
@@ -1356,9 +1360,9 @@ def _render_loops(plan: dict, progress) -> np.ndarray:
     _p(progress, 0.72, "A touch of color…")
     if recipe.get("color") == "pad":
         color = _pick(index, ("pad", "synth", "arp"), tonic_pc, ctx.bpm, rng,
-                      prefer=("pad", "texture"), mode=mode)
+                      prefer=("pad", "texture"), mode=mode, keyed=True)
     else:
-        color = _pick(index, ("synth", "arp", "pluck", "pad"), tonic_pc, ctx.bpm, rng, mode=mode)
+        color = _pick(index, ("synth", "arp", "pluck", "pad"), tonic_pc, ctx.bpm, rng, mode=mode, keyed=True)
     # don't double the harmony instrument family
     if color is not None and harmony is not None and color["name"] == harmony["name"]:
         color = None
@@ -1374,7 +1378,7 @@ def _render_loops(plan: dict, progress) -> np.ndarray:
     _p(progress, 0.78, "Layering a synth texture…")
     used = {x["name"] for x in (harmony, color) if x is not None}
     tex_cats = ("pluck", "arp", "synth") if recipe.get("color") == "pad" else ("arp", "pluck", "synth")
-    texture = _pick(index, tex_cats, tonic_pc, ctx.bpm, rng, mode=mode)
+    texture = _pick(index, tex_cats, tonic_pc, ctx.bpm, rng, mode=mode, keyed=True)
     if texture is not None and texture["name"] not in used:
         stem = _safe_warp_tile(texture, ctx, tonic_pc, n_total)
         if stem is not None:

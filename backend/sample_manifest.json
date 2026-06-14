@@ -1,6 +1,6 @@
 {
  "version": 1,
- "count": 252,
+ "count": 250,
  "samples": [
   {
    "name": "(stem) DC 3 140 bpm Em_Vocal.wav",
@@ -12,7 +12,7 @@
   },
   {
    "name": "(stem) HRv1 6 Em 140 bpm Choir.wav",
-   "cat": "other",
+   "cat": "vocal",
    "bpm": 140,
    "pc": 4,
    "mode": "minor",
@@ -180,7 +180,7 @@
   },
   {
    "name": "08_Mystical_Songstarter_LonelySouls_Cmin_160bpm.wav",
-   "cat": "other",
+   "cat": "vocal",
    "bpm": 160,
    "pc": null,
    "mode": null,
@@ -620,7 +620,7 @@
   },
   {
    "name": "BG_might know_75bpm_Cmin_vox.wav",
-   "cat": "other",
+   "cat": "vocal",
    "bpm": 75,
    "pc": null,
    "mode": null,
@@ -716,7 +716,7 @@
   },
   {
    "name": "Chocolate_96_Dm_Vox.wav",
-   "cat": "other",
+   "cat": "vocal",
    "bpm": 96,
    "pc": null,
    "mode": null,
@@ -756,7 +756,7 @@
   },
   {
    "name": "Control_Interlude_Songstarter_Cmin_120bpm.wav",
-   "cat": "other",
+   "cat": "vocal",
    "bpm": 120,
    "pc": null,
    "mode": null,
@@ -891,22 +891,6 @@
    "dur": 13.714
   },
   {
-   "name": "enjoi_vocal_o2i5bxn4.wav",
-   "cat": "vocal",
-   "bpm": null,
-   "pc": null,
-   "mode": null,
-   "dur": 116.565
-  },
-  {
-   "name": "enjoi_vocal_ua3pm85d.wav",
-   "cat": "vocal",
-   "bpm": null,
-   "pc": null,
-   "mode": null,
-   "dur": 116.565
-  },
-  {
    "name": "ES8D_Trap_808_C_boomin.wav",
    "cat": "b808",
    "bpm": null,
@@ -1036,7 +1020,7 @@
   },
   {
    "name": "GS_BUBBLE_CHOIR_120_FMIN.wav",
-   "cat": "other",
+   "cat": "vocal",
    "bpm": 120,
    "pc": null,
    "mode": null,
@@ -1100,7 +1084,7 @@
   },
   {
    "name": "horizon -  80 bpm em - Songstarter.wav",
-   "cat": "other",
+   "cat": "vocal",
    "bpm": 80,
    "pc": null,
    "mode": null,
@@ -1252,7 +1236,7 @@
   },
   {
    "name": "JL_Y2KE_10_Synth_songstarter_melody_multi_Gm_104bpm.wav",
-   "cat": "synth",
+   "cat": "vocal",
    "bpm": 104,
    "pc": null,
    "mode": null,
@@ -1684,7 +1668,7 @@
   },
   {
    "name": "RPSTR_FA_Coke_Choir_Bm_120BPM.wav",
-   "cat": "other",
+   "cat": "vocal",
    "bpm": 120,
    "pc": null,
    "mode": null,
