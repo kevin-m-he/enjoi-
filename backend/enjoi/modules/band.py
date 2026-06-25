@@ -1021,7 +1021,10 @@ def _tile(y: np.ndarray, n: int) -> np.ndarray:
         return np.zeros((2, n), dtype=np.float32)
     if m >= n:
         return y[:, :n]
-    xf = int(min(0.03 * SR, m * 0.12))
+    # Longer equal-power seam (≈60 ms) hides loop boundaries far better than the
+    # old 30 ms — short fades left audible clicks/glitches on rhythmic loops,
+    # especially after warping introduced tiny start/end phase mismatches.
+    xf = int(min(0.06 * SR, m * 0.20))
     out = y.copy()
     while out.shape[1] < n + m:
         a, b = out, y
@@ -1052,6 +1055,13 @@ def _pick(index, cats, target_pc, target_bpm, rng, prefer=(), avoid=(), mode=Non
     pool = [s for s in index if s["cat"] in cats and s["name"] not in exclude]
     if not pool:
         return None
+    # On keyed (melodic/bass) layers a clashing key is the single most audible
+    # defect. When enough properly-keyed loops exist, drop the un-keyed ones so the
+    # harmony/bass can only ever land in the song's scale.
+    if keyed and target_pc is not None:
+        keyed_pool = [s for s in pool if s["pc"] is not None]
+        if len(keyed_pool) >= 3:
+            pool = keyed_pool
     def score(s):
         sc = 0.0
         nm = s["name"].lower()
@@ -1065,15 +1075,24 @@ def _pick(index, cats, target_pc, target_bpm, rng, prefer=(), avoid=(), mode=Non
             ratio = target_bpm / _fold_bpm(s["bpm"], target_bpm)
             sc -= abs(math.log2(max(ratio, 1e-3))) * 4.0
         # --- key / mode: the heart of "complementary tones" ---
+        # Heavy per-semitone key penalty on keyed layers so a wrong-key loop can
+        # NEVER win on a prefer-keyword alone (e.g. a C-major piano in a G-major
+        # song): a 7-semitone clash costs ~11 pts, dwarfing the +3 keyword bonus.
         if s["pc"] is not None and target_pc is not None:
-            sc -= abs(_semitones_to(target_pc, s["pc"])) * (0.7 if keyed else 0.25)
+            sc -= abs(_semitones_to(target_pc, s["pc"])) * (1.6 if keyed else 0.25)
         elif keyed:
-            sc -= 3.0  # melodic loop with no parseable key — can't be key-matched
-        if s["mode"] is not None and mode:
-            sc += 1.6 if s["mode"] == mode else (-2.2 if keyed else 0.0)  # mode clash
+            sc -= 6.0  # melodic loop with no parseable key — strongly disfavored
+        if mode:
+            if s["mode"] is not None:
+                sc += 1.6 if s["mode"] == mode else (-3.0 if keyed else 0.0)
+            elif keyed:
+                sc -= 1.0  # unknown mode on a keyed layer — mild caution
         return sc
     pool.sort(key=score, reverse=True)
-    top = pool[: max(1, min(4, len(pool)))]   # a little wider pool → more variety
+    # Keyed layers pick from a tight top set (don't randomize into a worse key);
+    # color/texture layers can take a little more variety.
+    width = 2 if keyed else 4
+    top = pool[: max(1, min(width, len(pool)))]
     return rng.choice(top)
 
 
@@ -1121,11 +1140,12 @@ _LAYER = {
                 "bridge": 0.5, "outro": 0.12, "inst": 0.7},
 }
 _LOOP_MIX = {  # (gain_db, highpass_hz, pan, reference_rms) — consistent balance
-    # Hierarchy: MELODY is the loudest element; 808 sits just under it (solid but
-    # a touch lower); then drums; kick = 2nd quietest; hat = quietest.
-    "drums": (-4.0, 30.0, 0.0, 0.13),
-    "bass": (-1.5, 28.0, 0.0, 0.18),           # 808 — solid, a little lower
-    "harmony": (-1.0, 110.0, -0.10, 0.18),     # MELODY = loudest
+    # Beat-forward hierarchy: the 808/bass and drums LEAD the instrumental and the
+    # harmony sits underneath them (the beat should knock — the old "melody loudest"
+    # balance made beats feel weak). Per-genre drum/808 multipliers still scale these.
+    "drums": (-2.5, 30.0, 0.0, 0.13),          # drums lead the groove
+    "bass": (-1.5, 28.0, 0.0, 0.18),           # 808 — solid, on top with the drums
+    "harmony": (-3.0, 110.0, -0.10, 0.18),     # melody sits UNDER the beat
     "color": (-11.0, 220.0, 0.25, 0.06),
     "texture": (-12.0, 320.0, -0.28, 0.05),    # opposite pan to color → width
 }
