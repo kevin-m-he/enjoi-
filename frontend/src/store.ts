@@ -307,10 +307,11 @@ export const useStore = create<AppState>()((set, get) => {
           });
         }
         const { job_id } = await api.setReference(p.id, result.url);
+        // Same as the upload path: wait on the SearchScreen "Continue ▶ Analysis"
+        // gate instead of navigating before the reference is analyzed.
         set((s) => ({
           activeJobs: { ...s.activeJobs, reference: job_id },
           profile: null,
-          step: 1,
         }));
         await get().refreshProject();
         void get().loadProjects();
@@ -338,10 +339,12 @@ export const useStore = create<AppState>()((set, get) => {
           });
         }
         const { job_id } = await api.uploadReference(p.id, file);
+        // Stay on the search/upload screen while the upload + analysis run; the
+        // SearchScreen shows a progress bar and only reveals "Continue ▶ Analysis"
+        // once the job finishes (refDone). Don't navigate optimistically.
         set((s) => ({
           activeJobs: { ...s.activeJobs, reference: job_id },
           profile: null,
-          step: 1,
         }));
         await get().refreshProject();
         void get().loadProjects();

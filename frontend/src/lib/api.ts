@@ -32,10 +32,32 @@ export class ApiError extends Error {
   }
 }
 
+// Per-client owner id, persisted in localStorage. Sent on every API request so
+// the backend only ever lists THIS client's projects/reference tracks (privacy:
+// a new user must never see another user's uploads). Not a security boundary —
+// just per-user scoping of an otherwise shared store.
+const OWNER_KEY = 'enjoi_owner_id';
+function ownerId(): string {
+  try {
+    let id = localStorage.getItem(OWNER_KEY);
+    if (!id) {
+      id =
+        globalThis.crypto?.randomUUID?.() ??
+        `o_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+      localStorage.setItem(OWNER_KEY, id);
+    }
+    return id;
+  } catch {
+    return '';
+  }
+}
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers);
+  headers.set('X-Enjoi-Owner', ownerId());
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}${path}`, init);
+    res = await fetch(`${API_BASE}${path}`, { ...init, headers });
   } catch {
     throw new ApiError(0, 'Backend not reachable');
   }

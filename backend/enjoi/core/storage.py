@@ -119,7 +119,7 @@ class Project:
         shutil.rmtree(self.ref_cache_dir, ignore_errors=True)
 
 
-def create_project(name: str | None = None) -> Project:
+def create_project(name: str | None = None, owner: str | None = None) -> Project:
     pid = "p_" + uuid.uuid4().hex[:10]
     project = Project(pid)
     project.dir.mkdir(parents=True, exist_ok=True)
@@ -129,6 +129,10 @@ def create_project(name: str | None = None) -> Project:
             "id": pid,
             "name": name or "Untitled song",
             "created_at": datetime.now(timezone.utc).isoformat(),
+            # Owner scoping: a per-client id (sent by the frontend) so users only
+            # ever see their OWN projects/reference tracks in the list. Empty for
+            # legacy/desktop clients that don't send the header.
+            "owner": (owner or "").strip(),
             "reference": None,
             "similarity": None,
             "instrumental": None,
@@ -148,14 +152,24 @@ def get_project(project_id: str) -> Project | None:
     return project if project.exists() else None
 
 
-def list_projects() -> list[dict]:
+def list_projects(owner: str | None = None) -> list[dict]:
+    """Projects owned by `owner` only (privacy: never list other users' uploads).
+
+    A client sends its persistent owner id; we return just that client's projects.
+    Legacy projects (created before owner scoping) have owner=="" and are visible
+    only to requests that likewise send no owner (e.g. the desktop build).
+    """
+    want = (owner or "").strip()
     out = []
     for d in sorted(config.projects_dir().iterdir()):
         if d.is_dir() and (d / "project.json").exists() and _ID_RE.match(d.name):
             try:
-                out.append(read_json(d / "project.json"))
+                state = read_json(d / "project.json")
             except Exception:
                 continue
+            if state.get("owner", "") != want:
+                continue
+            out.append(state)
     out.sort(key=lambda s: s.get("created_at", ""), reverse=True)
     return out
 

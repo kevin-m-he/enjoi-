@@ -7,7 +7,10 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import (
+    APIRouter, Depends, File, Header, HTTPException, UploadFile, WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -32,6 +35,12 @@ def _project_or_404(pid: str):
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
     return project
+
+
+def owner_id(x_enjoi_owner: str | None = Header(default=None)) -> str:
+    """Per-client owner id (privacy scoping). Sent by the frontend on API calls;
+    empty for legacy/desktop clients. Capped so it can't be abused as storage."""
+    return (x_enjoi_owner or "").strip()[:64]
 
 
 # ---- health / search ---------------------------------------------------------
@@ -91,13 +100,15 @@ class CreateProjectBody(BaseModel):
 
 
 @router.get("/api/projects")
-def projects_list() -> dict:
-    return {"projects": list_projects()}
+def projects_list(owner: str = Depends(owner_id)) -> dict:
+    return {"projects": list_projects(owner)}
 
 
 @router.post("/api/projects")
-def projects_create(body: CreateProjectBody | None = None) -> dict:
-    project = create_project((body.name if body else None) or None)
+def projects_create(
+    body: CreateProjectBody | None = None, owner: str = Depends(owner_id)
+) -> dict:
+    project = create_project((body.name if body else None) or None, owner=owner)
     return project.read_state()
 
 
