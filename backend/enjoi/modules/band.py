@@ -166,9 +166,26 @@ def available() -> bool:
 # Plan context
 # ---------------------------------------------------------------------------
 
+# Off-8th swing (fraction of an eighth-note to delay the "and") per drum feel.
+_SWING_BY_FEEL = {"lofi": 0.16, "rnb": 0.14, "trap": 0.06, "latin": 0.08,
+                  "folk": 0.0, "pop": 0.0, "rock": 0.0, "edm": 0.0}
+
+
 class _Ctx:
-    __slots__ = ("bpm", "spb", "bpb", "scale", "minorish", "seed", "genre",
-                 "recipe", "structure", "rng")
+    __slots__ = ("bpm", "spb", "spb_samp", "bar_samp", "total_bars", "bpb",
+                 "scale", "minorish", "seed", "genre", "recipe", "structure",
+                 "rng", "swing", "bar_roots", "anchor_root")
+
+
+def grid_pos(ctx: "_Ctx", beat: float) -> int:
+    """Exact integer sample index for a (possibly fractional) beat on the ONE
+    frozen grid, with deterministic off-8th swing. Bar k is always k*bar_samp —
+    no float-truncation drift can accumulate."""
+    base = int(round(beat * ctx.spb_samp))
+    frac = beat - math.floor(beat)
+    if ctx.swing > 0.0 and abs(frac - 0.5) < 1e-6:
+        base += int(round(ctx.swing * 0.5 * ctx.spb_samp))  # delay the "and"
+    return base
 
 
 def _ctx(plan: dict) -> _Ctx:
@@ -176,11 +193,13 @@ def _ctx(plan: dict) -> _Ctx:
     c.bpm = float(plan.get("bpm") or 120.0)
     c.bpm = min(max(c.bpm, 50.0), 200.0)
     c.spb = 60.0 / c.bpm
+    c.spb_samp = int(round(c.spb * SR))            # ONE integer beat (samples)
     ts = str(plan.get("time_signature") or "4/4")
     try:
         c.bpb = max(2, min(12, int(ts.split("/")[0])))
     except (ValueError, IndexError):
         c.bpb = 4
+    c.bar_samp = c.spb_samp * c.bpb                 # ONE integer bar (samples)
     key = plan.get("key") or {}
     tonic = str(key.get("tonic") or "C").strip().upper()
     pc = NOTE_TO_PC.get(tonic[:2], NOTE_TO_PC.get(tonic[:1], 0))
@@ -205,6 +224,11 @@ def _ctx(plan: dict) -> _Ctx:
         {"label": "chorus", "bars": 8}, {"label": "outro", "bars": 4}]
     c.structure = [{"label": str(s.get("label", "verse")), "bars": max(1, int(s.get("bars", 4)))}
                    for s in structure]
+    c.total_bars = sum(s["bars"] for s in c.structure)
+    feel = _LOOP_GENRE.get(genre, _DEFAULT_LOOP_GENRE).get("feel", "pop")
+    c.swing = _SWING_BY_FEEL.get(feel, 0.0)
+    c.bar_roots = []        # per-bar chord roots, derived from the anchor loop
+    c.anchor_root = None    # anchor loop's tonic pitch-class
     return c
 
 
@@ -774,15 +798,39 @@ def _measure_bpm(y: np.ndarray, target_bpm: float):
 
 
 def _parse_key(name: str):
-    for m in _re.finditer(r'(?<![A-Za-z#b])([A-G])([#b]?)\s*(maj|min|m)\b', name):
-        pc = _NOTE_PC.get(m.group(1).upper() + (m.group(2) or "").upper())
-        if pc is not None:
-            return pc, ("major" if m.group(3).lower() == "maj" else "minor")
-    m = _re.search(r'[Kk]ey([A-G])([#b]?)(min|maj|m)?', name)
+    """Recover (pitch_class, mode|None) from a loop filename. Ordered most- to
+    least-confident so high-precision forms win; the looser fallbacks only fire
+    when no explicit key is present. ~88% melodic coverage on the library."""
+    n = name.rsplit(".", 1)[0]  # drop the extension
+    # 1) <note><mode> / key<note><mode> — full-word ("major"/"minor") or short
+    #    ("maj"/"min"/"m"); note not glued to a preceding letter.
+    m = _re.search(
+        r'(?<![A-Za-z])(?:key[\s_-]*)?([A-G])([#b]?)[\s_-]*(maj(?:or)?|min(?:or)?|m)(?![A-Za-z])',
+        n, _re.I)
     if m:
         pc = _NOTE_PC.get(m.group(1).upper() + (m.group(2) or "").upper())
         if pc is not None:
-            return pc, ("major" if (m.group(3) or "").lower() == "maj" else "minor")
+            return pc, ("major" if m.group(3).lower().startswith("maj") else "minor")
+    # 2) explicit "key<note>" with no mode → note, mode unknown.
+    m = _re.search(r'key[\s_-]*([A-G])([#b]?)(?![A-Za-z])', n, _re.I)
+    if m:
+        pc = _NOTE_PC.get(m.group(1).upper() + (m.group(2) or "").upper())
+        if pc is not None:
+            return pc, None
+    # 3) a bare note WITH an accidental as a standalone token (F#, Bb — almost
+    #    never a false positive). Mode unknown.
+    m = _re.search(r'(?:^|[\s_\-])([A-G])([#b])(?=[\s_\-.]|$)', n)
+    if m:
+        pc = _NOTE_PC.get(m.group(1).upper() + m.group(2).upper())
+        if pc is not None:
+            return pc, None
+    # 4) a trailing standalone note — the conventional key slot at the end of a
+    #    pack filename (e.g. "82 BPM - G -", "..._A"). Mode unknown.
+    m = _re.search(r'[\s_\-]([A-G])(?=[\s_\-]*$)', n)
+    if m:
+        pc = _NOTE_PC.get(m.group(1).upper())
+        if pc is not None:
+            return pc, None
     return None
 
 
@@ -989,53 +1037,86 @@ def _fold_bpm(native: float, target: float) -> float:
     n = float(native)
     if n <= 0:
         return target
-    while target / n > 1.42:
+    while target / n > 1.41421356:   # sqrt(2)-centred: prefer half/double over a smear
         n *= 2.0
-    while target / n < 0.71:
+    while target / n < 0.70710678:
         n /= 2.0
     return n
 
 
-def _warp(y: np.ndarray, native_bpm, target_bpm: float, semitones: float,
-          is_drum: bool) -> np.ndarray:
-    import librosa
+def _fit_len(y: np.ndarray, L: int) -> np.ndarray:
+    """Force a (2, m) array to EXACTLY L samples (trim or zero-pad) — librosa's
+    time-stretch/pitch-shift never hits a target length precisely."""
+    m = y.shape[1]
+    if m == L:
+        return np.ascontiguousarray(y, dtype=np.float32)
+    if m > L:
+        return np.ascontiguousarray(y[:, :L], dtype=np.float32)
+    return np.ascontiguousarray(np.pad(y, ((0, 0), (0, L - m))), dtype=np.float32)
 
-    # Source tempo is MEASURED from the audio (the entry's length-based BPM, or a
-    # direct measure as fallback) — never the filename — then resampled to grid.
-    nb = native_bpm if native_bpm else _measure_bpm(y, target_bpm)
-    if nb:
-        rate = target_bpm / _fold_bpm(nb, target_bpm)
-        if abs(rate - 1.0) > 0.01:
-            y = np.stack([librosa.effects.time_stretch(np.ascontiguousarray(ch), rate=float(rate))
-                          for ch in y])
-    if not is_drum and abs(semitones) >= 0.5:
+
+def _warp(y: np.ndarray, entry, ctx: "_Ctx", semitones: float,
+          is_drum: bool) -> np.ndarray:
+    """Warp a loop to an EXACT whole-bar length on the frozen grid so it tiles in
+    perfect bar copies — every repeat's downbeat lands on a grid downbeat (the fix
+    for "discombobulated"). Melodic loops get one phase-vocoder time-stretch +
+    optional pitch-shift; drums avoid time-stretch (transient-preserving varispeed
+    resample, fold-bounded to <= sqrt(2) so the kit detune stays small)."""
+    import librosa
+    m = y.shape[1]
+    if m == 0:
+        return np.ascontiguousarray(y, dtype=np.float32)
+    nb = entry.get("bpm") if entry else None
+    if not nb:
+        nb = _measure_bpm(y, ctx.bpm)
+    if is_drum and nb:
+        nb = _fold_bpm(nb, ctx.bpm)
+    # how many WHOLE BARS does this loop hold (measured from its length)?
+    if nb and nb > 0:
+        src_bar = (60.0 / nb) * ctx.bpb * SR         # samples per bar at native tempo
+        bars = max(1, int(round(m / src_bar)))
+    else:
+        bars = max(1, int(round(m / ctx.bar_samp)))
+    target_len = bars * ctx.bar_samp                 # exact integer grid length
+    if is_drum:
+        from fractions import Fraction
+        from scipy.signal import resample_poly
+        fr = Fraction(int(target_len), int(m)).limit_denominator(64)
+        if fr.numerator != fr.denominator:
+            y = np.stack([resample_poly(ch, fr.numerator, fr.denominator) for ch in y])
+        return _fit_len(y, target_len)
+    rate = m / float(target_len)
+    if abs(rate - 1.0) > 0.01:
+        y = np.stack([librosa.effects.time_stretch(np.ascontiguousarray(ch), rate=float(rate))
+                      for ch in y])
+    y = _fit_len(y, target_len)
+    if abs(semitones) >= 0.5:
         y = np.stack([librosa.effects.pitch_shift(np.ascontiguousarray(ch), sr=SR,
                                                   n_steps=float(semitones)) for ch in y])
+        y = _fit_len(y, target_len)
     return np.ascontiguousarray(y, dtype=np.float32)
 
 
 def _tile(y: np.ndarray, n: int) -> np.ndarray:
-    """Loop (2, m) up to length n with a short equal-power crossfade at the seam."""
+    """Tile a bar-exact loop to length n with INTEGER bar copies (butt-splice) and
+    a ~3 ms anti-click micro-fade at each seam. The old 60 ms equal-power crossfade
+    dropped xf samples per repeat, shortening the period so downbeats slipped off
+    the grid every loop — gone. Integer np.tile preserves the period exactly."""
     m = y.shape[1]
     if m == 0:
         return np.zeros((2, n), dtype=np.float32)
     if m >= n:
-        return y[:, :n]
-    # Longer equal-power seam (≈60 ms) hides loop boundaries far better than the
-    # old 30 ms — short fades left audible clicks/glitches on rhythmic loops,
-    # especially after warping introduced tiny start/end phase mismatches.
-    xf = int(min(0.06 * SR, m * 0.20))
-    out = y.copy()
-    while out.shape[1] < n + m:
-        a, b = out, y
-        if xf >= 2:
-            t = np.linspace(0, np.pi / 2, xf, dtype=np.float32)
-            fade_o, fade_i = np.cos(t), np.sin(t)
-            head = a[:, -xf:] * fade_o + b[:, :xf] * fade_i
-            out = np.concatenate([a[:, :-xf], head, b[:, xf:]], axis=1)
-        else:
-            out = np.concatenate([a, b], axis=1)
-    return out[:, :n]
+        return np.ascontiguousarray(y[:, :n], dtype=np.float32)
+    reps = -(-n // m)                                  # ceil division
+    out = np.ascontiguousarray(np.tile(y, (1, reps))[:, :n], dtype=np.float32)
+    f = min(int(0.003 * SR), m // 8)
+    if f >= 2:
+        fo = np.linspace(1.0, 0.0, f, dtype=np.float32)
+        fi = np.linspace(0.0, 1.0, f, dtype=np.float32)
+        head = y[:, :f]
+        for seam in range(m, n, m):                    # smooth each butt-splice in place
+            out[:, seam - f:seam] = out[:, seam - f:seam] * fo + head * fi
+    return out
 
 
 # ---- selection -------------------------------------------------------------
@@ -1081,7 +1162,8 @@ def _pick(index, cats, target_pc, target_bpm, rng, prefer=(), avoid=(), mode=Non
         if s["pc"] is not None and target_pc is not None:
             sc -= abs(_semitones_to(target_pc, s["pc"])) * (1.6 if keyed else 0.25)
         elif keyed:
-            sc -= 6.0  # melodic loop with no parseable key — strongly disfavored
+            sc -= 14.0  # melodic loop with no parseable key — strongly disfavored
+            #            (but NOT disqualified: a soft penalty so pools never empty)
         if mode:
             if s["mode"] is not None:
                 sc += 1.6 if s["mode"] == mode else (-3.0 if keyed else 0.0)
@@ -1157,7 +1239,7 @@ def _section_envelope(role: str, ctx: _Ctx, n_total: int) -> np.ndarray:
     cursor = 0
     ramp = int(0.06 * SR)
     for sec in ctx.structure:
-        seclen = int(sec["bars"] * ctx.bpb * ctx.spb * SR)
+        seclen = sec["bars"] * ctx.bar_samp        # exact integer grid bars
         g = table.get(sec["label"], 0.7)
         end = min(n_total, cursor + seclen)
         if end > cursor:
@@ -1189,7 +1271,7 @@ def _sectioned_stem(a: np.ndarray | None, b: np.ndarray | None, ctx: _Ctx,
     xf = max(int(0.05 * SR), 1)
     cursor, prev = 0, a
     for sec in ctx.structure:
-        seclen = int(sec["bars"] * ctx.bpb * ctx.spb * SR)
+        seclen = sec["bars"] * ctx.bar_samp        # exact integer grid bars
         end = min(n_total, cursor + seclen)
         src = b if sec["label"] in _CHORUS_LABELS else a
         if end > cursor:
@@ -1309,7 +1391,7 @@ def _safe_warp_tile(entry, ctx, tonic_pc, n_total, is_drum=False, gain=1.0):
             log.warning("skipping distorted loop %r", entry.get("name"))
             return None
         semis = 0.0 if is_drum else _semitones_to(tonic_pc, entry.get("pc"))
-        y = _warp(y, entry.get("bpm"), ctx.bpm, semis, is_drum)
+        y = _warp(y, entry, ctx, semis, is_drum)
         return _tile(y * gain, n_total)
     except Exception as exc:
         log.warning("skipping loop %r: %s", entry.get("name") if entry else None, exc)
@@ -1346,15 +1428,19 @@ def _program_drums(index, ctx, n_total, intensity, rng, feel) -> np.ndarray | No
     # hat = quietest, kick = 2nd quietest; snare/clap carry the backbeat.
     lvl = {"kick": 0.48, "snare": 0.85, "clap": 0.78, "hat": 0.30, "crash": 0.5}
     bus = np.zeros((2, n_total), dtype=np.float32)
-    bars = sum(s["bars"] for s in ctx.structure)
-    spb, bpb = ctx.spb, ctx.bpb
+    bars = ctx.total_bars
+    bpb = ctx.bpb
     for beat, role, vel in _drum_pattern(feel, bpb, bars, intensity, rng, ctx.bpm):
         sig = samples.get(role)
         if sig is None:
             sig = samples.get("snare")
         if sig is None:
             continue
-        start = int(beat * spb * SR + rng.uniform(-0.006, 0.006) * SR)
+        # EXACT integer grid position (with deterministic swing) — no per-hit random
+        # jitter, so kick beat-1 == loop sample 0 == bar k*bar_samp. Velocity still
+        # breathes (musical dynamics), but the timing is locked to the same grid as
+        # the loops, so the beat and the melodic loops agree on the pulse.
+        start = grid_pos(ctx, beat)
         _place(bus, start, sig, vel * lvl.get(role, 0.6) * rng.uniform(0.9, 1.0))
     return bus * intensity
 
@@ -1393,7 +1479,7 @@ def _render_loops(plan: dict, progress) -> np.ndarray:
     recipe = _LOOP_GENRE.get(ctx.genre, _DEFAULT_LOOP_GENRE)
     mode = "minor" if ctx.minorish else "major"
     tonic_pc = ctx.scale[0] % 12
-    n_total = int(sum(s["bars"] for s in ctx.structure) * ctx.bpb * ctx.spb * SR)
+    n_total = ctx.bar_samp * ctx.total_bars        # exact integer grid length
     n_total = max(n_total, SR)
     stems: dict = {}
 
@@ -1492,8 +1578,14 @@ def _render_loops(plan: dict, progress) -> np.ndarray:
 
 
 def _glue_and_pocket(bus: np.ndarray) -> np.ndarray:
-    """Carve a gentle vocal pocket (~2.8 kHz) and glue the mix so it reads as one
-    cohesive track with a tight, consistent waveform (room for the vocal lead)."""
+    """Glue the disparate loops into ONE cohesive texture, then carve a gentle
+    ~2.8 kHz vocal pocket (the instrumental always gets a vocal on top in this app).
+    Saturation goes FIRST — before the comp — so its harmonics fuse the layers and
+    it doesn't fight the compressor's make-up gain."""
+    # gentle tanh saturation: ~unity for small signals, soft-clips peaks → adds
+    # common harmonic content across all stems so they read as one instrument bus.
+    drive = 1.25
+    bus = (np.tanh(bus * drive) / drive).astype(np.float32)
     pedalboard = deps.optional_import("pedalboard")
     if pedalboard is None:
         return bus

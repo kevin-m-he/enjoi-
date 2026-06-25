@@ -6,8 +6,8 @@
    "name": "(stem) DC 3 140 bpm Em_Vocal.wav",
    "cat": "vocal",
    "bpm": 120.0,
-   "pc": null,
-   "mode": null,
+   "pc": 4,
+   "mode": "minor",
    "dur": 16.0
   },
   {
@@ -38,127 +38,127 @@
    "name": "01_METRO_vol_1_808_Bm_130bpm.wav",
    "cat": "b808",
    "bpm": 130.0,
-   "pc": null,
-   "mode": null,
+   "pc": 11,
+   "mode": "minor",
    "dur": 14.769
   },
   {
    "name": "01_METRO_vol_1_Clap_Bm_130bpm.wav",
    "cat": "clap",
    "bpm": 130.0,
-   "pc": null,
-   "mode": null,
+   "pc": 11,
+   "mode": "minor",
    "dur": 14.769
   },
   {
    "name": "01_METRO_vol_1_Crash_Bm_130bpm.wav",
    "cat": "crash",
    "bpm": 130.0,
-   "pc": null,
-   "mode": null,
+   "pc": 11,
+   "mode": "minor",
    "dur": 14.769
   },
   {
    "name": "01_METRO_vol_1_Hat_Bm_130bpm.wav",
    "cat": "hat",
    "bpm": 130.0,
-   "pc": null,
-   "mode": null,
+   "pc": 11,
+   "mode": "minor",
    "dur": 7.385
   },
   {
    "name": "01_METRO_vol_1_Hihat_Bm_130bpm.wav",
    "cat": "hat",
    "bpm": 150.0,
-   "pc": null,
-   "mode": null,
+   "pc": 11,
+   "mode": "minor",
    "dur": 12.8
   },
   {
    "name": "01_METRO_vol_1_Kick_Bm_130bpm.wav",
    "cat": "kick",
    "bpm": 130.0,
-   "pc": null,
-   "mode": null,
+   "pc": 11,
+   "mode": "minor",
    "dur": 14.769
   },
   {
    "name": "01_METRO_vol_1_Open_Hat_Bm_130bpm.wav",
    "cat": "openhat",
    "bpm": 130.0,
-   "pc": null,
-   "mode": null,
+   "pc": 11,
+   "mode": "minor",
    "dur": 14.769
   },
   {
    "name": "02_127BPM_Gminor_Pad 2.wav",
    "cat": "pad",
    "bpm": 138.0,
-   "pc": null,
-   "mode": null,
+   "pc": 7,
+   "mode": "minor",
    "dur": 13.913
   },
   {
    "name": "02_METRO_vol_1_808_Dm_150bpm.wav",
    "cat": "b808",
    "bpm": 150.0,
-   "pc": null,
-   "mode": null,
+   "pc": 2,
+   "mode": "minor",
    "dur": 12.8
   },
   {
    "name": "02_METRO_vol_1_Clap_Dm_150bpm.wav",
    "cat": "clap",
    "bpm": 150.0,
-   "pc": null,
-   "mode": null,
+   "pc": 2,
+   "mode": "minor",
    "dur": 12.8
   },
   {
    "name": "02_METRO_vol_1_Hihat_Dm_150bpm.wav",
    "cat": "hat",
    "bpm": 155.0,
-   "pc": null,
-   "mode": null,
+   "pc": 2,
+   "mode": "minor",
    "dur": 6.194
   },
   {
    "name": "02_METRO_vol_1_Kick_Dm_150bpm.wav",
    "cat": "kick",
    "bpm": 130.0,
-   "pc": null,
-   "mode": null,
+   "pc": 2,
+   "mode": "minor",
    "dur": 14.769
   },
   {
    "name": "02_METRO_vol_1_Open_Hat_Dm_150bpm.wav",
    "cat": "openhat",
    "bpm": 130.0,
-   "pc": null,
-   "mode": null,
+   "pc": 2,
+   "mode": "minor",
    "dur": 14.769
   },
   {
    "name": "02_METRO_vol_1_Snares_Dm_150bpm.wav",
    "cat": "snare",
    "bpm": 130.0,
-   "pc": null,
-   "mode": null,
+   "pc": 2,
+   "mode": "minor",
    "dur": 7.385
   },
   {
    "name": "03_DURKIN_vol_4_808_Cm_116Bpm.wav",
    "cat": "b808",
    "bpm": 125.0,
-   "pc": null,
-   "mode": null,
+   "pc": 0,
+   "mode": "minor",
    "dur": 7.68
   },
   {
    "name": "04-LatinTrapVocals-Oneshot-808_D.wav",
    "cat": "vocal",
    "bpm": 100.0,
-   "pc": null,
+   "pc": 2,
    "mode": null,
    "dur": 2.4
   },
@@ -174,24 +174,24 @@
    "name": "05_METRO_vol_2_808_Gmaj_144bpm.wav",
    "cat": "b808",
    "bpm": 156.0,
-   "pc": null,
-   "mode": null,
+   "pc": 7,
+   "mode": "major",
    "dur": 12.308
   },
   {
    "name": "08_Mystical_Songstarter_LonelySouls_Cmin_160bpm.wav",
    "cat": "vocal",
    "bpm": 56.0,
-   "pc": null,
-   "mode": null,
+   "pc": 0,
+   "mode": "minor",
    "dur": 68.571
   },
   {
    "name": "08_Trippie Nation_G#m_151bpm_Synth Lead.wav",
    "cat": "synth",
    "bpm": 140.0,
-   "pc": null,
-   "mode": null,
+   "pc": 8,
+   "mode": "minor",
    "dur": 13.714
   },
   {
@@ -230,16 +230,16 @@
    "name": "152BPM_EMinor_Synth.wav",
    "cat": "synth",
    "bpm": 113.0,
-   "pc": null,
-   "mode": null,
+   "pc": 4,
+   "mode": "minor",
    "dur": 33.982
   },
   {
    "name": "16. Spanish Guitar_#16_Bbm_79bpm.wav",
    "cat": "guitar",
    "bpm": 58.8,
-   "pc": null,
-   "mode": null,
+   "pc": 10,
+   "mode": "minor",
    "dur": 65.291
   },
   {
@@ -254,16 +254,16 @@
    "name": "19_Drift Phonk_Abstract State_Fx_One-Shot_Bm_Riser_Noise_Layered_Analog.wav",
    "cat": "other",
    "bpm": 102.0,
-   "pc": null,
-   "mode": null,
+   "pc": 11,
+   "mode": "minor",
    "dur": 18.824
   },
   {
    "name": "20_Analog_Techno_Arp_124BPM_Fmin_Sidechained.wav",
    "cat": "arp",
    "bpm": 130.0,
-   "pc": null,
-   "mode": null,
+   "pc": 5,
+   "mode": "minor",
    "dur": 14.769
   },
   {
@@ -310,8 +310,8 @@
    "name": "34_Acoustic_Guitar_Dm_130bpm.wav",
    "cat": "guitar",
    "bpm": 102.0,
-   "pc": null,
-   "mode": null,
+   "pc": 2,
+   "mode": "minor",
    "dur": 18.824
   },
   {
@@ -326,16 +326,16 @@
    "name": "3_Guitar_Chords_Cm_118bpm.wav",
    "cat": "guitar",
    "bpm": 97.0,
-   "pc": null,
-   "mode": null,
+   "pc": 0,
+   "mode": "minor",
    "dur": 9.897
   },
   {
    "name": "3am_In_Portland_Dreamy_Pad_Am_91BPM.wav",
    "cat": "pad",
    "bpm": 128.0,
-   "pc": null,
-   "mode": null,
+   "pc": 9,
+   "mode": "minor",
    "dur": 15.0
   },
   {
@@ -358,40 +358,40 @@
    "name": "8AM_In_Charlotte_Melodic_Loop_Bm_86BPM.wav",
    "cat": "vocal",
    "bpm": 98.0,
-   "pc": null,
-   "mode": null,
+   "pc": 9,
+   "mode": "minor",
    "dur": 9.796
   },
   {
    "name": "8AM_In_Charlotte_Piano_Melodic_Chords_Bm_86BPM.wav",
    "cat": "vocal",
    "bpm": 106.7,
-   "pc": null,
-   "mode": null,
+   "pc": 9,
+   "mode": "minor",
    "dur": 36.0
   },
   {
    "name": "8AM_In_Charlotte_Vocal_Melodic_Adlibs_Loop_Bm_86BPM.wav",
    "cat": "vocal",
    "bpm": 141.0,
-   "pc": null,
-   "mode": null,
+   "pc": 9,
+   "mode": "minor",
    "dur": 13.618
   },
   {
    "name": "@aquila_beats_hihat-love-on-you-118-a#m.wav",
    "cat": "hat",
    "bpm": 108.0,
-   "pc": null,
-   "mode": null,
+   "pc": 10,
+   "mode": "minor",
    "dur": 17.778
   },
   {
    "name": "@aquila_beats_kick-crew-128-f#m.wav",
    "cat": "kick",
    "bpm": 146.0,
-   "pc": null,
-   "mode": null,
+   "pc": 6,
+   "mode": "minor",
    "dur": 13.151
   },
   {
@@ -422,8 +422,8 @@
    "name": "AA - OVO - 90 BPM - F# Min.wav",
    "cat": "other",
    "bpm": 140.0,
-   "pc": null,
-   "mode": null,
+   "pc": 6,
+   "mode": "minor",
    "dur": 13.714
   },
   {
@@ -446,16 +446,16 @@
    "name": "AAD69_PAD_Dmin_140bpm_35.wav",
    "cat": "pad",
    "bpm": 75.3,
-   "pc": null,
-   "mode": null,
+   "pc": 2,
+   "mode": "minor",
    "dur": 51.0
   },
   {
    "name": "AADDM_latin_melody_loop_96_Dmin_praise.wav",
    "cat": "synth",
    "bpm": 114.0,
-   "pc": null,
-   "mode": null,
+   "pc": 2,
+   "mode": "minor",
    "dur": 16.842
   },
   {
@@ -574,7 +574,7 @@
    "name": "AMV_RNBK3_100_piano_loop_blimp_C#.wav",
    "cat": "piano",
    "bpm": 140.0,
-   "pc": null,
+   "pc": 1,
    "mode": null,
    "dur": 13.714
   },
@@ -614,32 +614,32 @@
    "name": "Bell_Melody_1_Dark_(Rapture)_Dminor_128bpm.wav",
    "cat": "synth",
    "bpm": 98.0,
-   "pc": null,
-   "mode": null,
+   "pc": 2,
+   "mode": "minor",
    "dur": 19.592
   },
   {
    "name": "BG_might know_75bpm_Cmin_vox.wav",
    "cat": "vocal",
    "bpm": 100.0,
-   "pc": null,
-   "mode": null,
+   "pc": 0,
+   "mode": "minor",
    "dur": 19.2
   },
   {
    "name": "BNG_DPH_Synth_155BPM_Cm_Flow.wav",
    "cat": "synth",
    "bpm": 152.0,
-   "pc": null,
-   "mode": null,
+   "pc": 0,
+   "mode": "minor",
    "dur": 25.263
   },
   {
    "name": "BNG_VEL_145_Arp_Loop_Am_Moon.wav",
    "cat": "arp",
    "bpm": 114.0,
-   "pc": null,
-   "mode": null,
+   "pc": 9,
+   "mode": "minor",
    "dur": 8.421
   },
   {
@@ -678,7 +678,7 @@
    "name": "BTL1-Pad-Granular_160bpm_Gb.wav",
    "cat": "pad",
    "bpm": 89.0,
-   "pc": null,
+   "pc": 6,
    "mode": null,
    "dur": 5.393
   },
@@ -718,16 +718,16 @@
    "name": "Chocolate_96_Dm_Vox.wav",
    "cat": "vocal",
    "bpm": 140.0,
-   "pc": null,
-   "mode": null,
+   "pc": 2,
+   "mode": "minor",
    "dur": 27.429
   },
   {
    "name": "CI_Electric_Guitar_Riff_Cmin_120bpm.wav",
    "cat": "guitar",
    "bpm": null,
-   "pc": null,
-   "mode": null,
+   "pc": 0,
+   "mode": "minor",
    "dur": 80.842
   },
   {
@@ -750,16 +750,16 @@
    "name": "Colors_Scratch_Vocal_C#m_90BPM.wav",
    "cat": "vocal",
    "bpm": 120.0,
-   "pc": null,
-   "mode": null,
+   "pc": 1,
+   "mode": "minor",
    "dur": 16.0
   },
   {
    "name": "Control_Interlude_Songstarter_Cmin_120bpm.wav",
    "cat": "vocal",
    "bpm": 120.0,
-   "pc": null,
-   "mode": null,
+   "pc": 0,
+   "mode": "minor",
    "dur": 16.0
   },
   {
@@ -774,32 +774,32 @@
    "name": "CS_DR_synth_lake_melody_Amin_140bpm.wav",
    "cat": "synth",
    "bpm": 125.0,
-   "pc": null,
-   "mode": null,
+   "pc": 9,
+   "mode": "minor",
    "dur": 15.36
   },
   {
    "name": "CSG_120_Emaj_Wonderful_Classical_Guitar_4_CLEAN.wav",
    "cat": "guitar",
    "bpm": 110.0,
-   "pc": null,
-   "mode": null,
+   "pc": 4,
+   "mode": "major",
    "dur": 17.455
   },
   {
    "name": "CSG_70_Am_Sadboi_Classical_Guitar_4_LOFI.wav",
    "cat": "guitar",
    "bpm": 90.0,
-   "pc": null,
-   "mode": null,
+   "pc": 9,
+   "mode": "minor",
    "dur": 10.667
   },
   {
    "name": "CUG_80_C#m_Spanish_Ukulele_LOFI.wav",
    "cat": "guitar",
    "bpm": 140.0,
-   "pc": null,
-   "mode": null,
+   "pc": 1,
+   "mode": "minor",
    "dur": 6.857
   },
   {
@@ -862,24 +862,24 @@
    "name": "Efecto_Flame-Audio_LaPasion_Strings_Loop_Bm_Violin_Verse_100BPM.wav",
    "cat": "other",
    "bpm": 106.7,
-   "pc": null,
-   "mode": null,
+   "pc": 11,
+   "mode": "minor",
    "dur": 36.0
   },
   {
    "name": "Efecto_Flame-Audio_Mondeo_Vocal_Loop_Am_Mondeo_120BPM.wav",
    "cat": "vocal",
    "bpm": 120.0,
-   "pc": null,
-   "mode": null,
+   "pc": 9,
+   "mode": "minor",
    "dur": 32.0
   },
   {
    "name": "Elemn_MCT_808_Bass_Loop_03_Emin_140bpm.wav",
    "cat": "b808",
    "bpm": 144.0,
-   "pc": null,
-   "mode": null,
+   "pc": 4,
+   "mode": "minor",
    "dur": 13.333
   },
   {
@@ -910,8 +910,8 @@
    "name": "ESM_Loop_115_Lofi_Plucked_Keys_Piano_LetMeGo_Am_Dusty_Vinyl_Airy.wav",
    "cat": "piano",
    "bpm": 115.0,
-   "pc": null,
-   "mode": null,
+   "pc": 9,
+   "mode": "minor",
    "dur": 16.696
   },
   {
@@ -934,48 +934,48 @@
    "name": "EWS_Guitar_Lead_Melody_Romantic_A_Minor_95BPM.wav",
    "cat": "guitar",
    "bpm": 120.0,
-   "pc": null,
-   "mode": null,
+   "pc": 9,
+   "mode": "minor",
    "dur": 16.0
   },
   {
    "name": "EWS_Guitar_Rythm_Happy_Latin_Ab_Minor_90BPM.wav",
    "cat": "guitar",
    "bpm": 106.7,
-   "pc": null,
-   "mode": null,
+   "pc": 8,
+   "mode": "minor",
    "dur": 36.0
   },
   {
    "name": "EWS_Keys_Piano_smooth_E_Minor_87BPM.wav",
    "cat": "vocal",
    "bpm": 150.0,
-   "pc": null,
-   "mode": null,
+   "pc": 4,
+   "mode": "minor",
    "dur": 25.6
   },
   {
    "name": "EWS_Synth_Plucked_Chords_Lead melody_Sad_Dark_Latin_Bb_Minor_88BPM.wav",
    "cat": "pluck",
    "bpm": 140.0,
-   "pc": null,
-   "mode": null,
+   "pc": 10,
+   "mode": "minor",
    "dur": 13.714
   },
   {
    "name": "EWS_Vocal_Atmospheric_Sad_Dark_Full_RnB_Trap_Ab_Minor_140BPM.wav",
    "cat": "vocal",
    "bpm": 150.0,
-   "pc": null,
-   "mode": null,
+   "pc": 8,
+   "mode": "minor",
    "dur": 25.6
   },
   {
    "name": "FA_DD_02_DRY_138BPM_Emin_808.wav",
    "cat": "b808",
    "bpm": 116.0,
-   "pc": null,
-   "mode": null,
+   "pc": 4,
+   "mode": "minor",
    "dur": 16.552
   },
   {
@@ -990,8 +990,8 @@
    "name": "FL_Epiano_Chords_F#min_120bpm.wav",
    "cat": "vocal",
    "bpm": 114.0,
-   "pc": null,
-   "mode": null,
+   "pc": 6,
+   "mode": "minor",
    "dur": 33.684
   },
   {
@@ -1006,8 +1006,8 @@
    "name": "GN_String_Ensemble_D#min_68bpm.wav",
    "cat": "other",
    "bpm": 96.0,
-   "pc": null,
-   "mode": null,
+   "pc": 3,
+   "mode": "minor",
    "dur": 20.0
   },
   {
@@ -1022,8 +1022,8 @@
    "name": "GS_BUBBLE_CHOIR_120_FMIN.wav",
    "cat": "vocal",
    "bpm": 120.0,
-   "pc": null,
-   "mode": null,
+   "pc": 5,
+   "mode": "minor",
    "dur": 32.0
   },
   {
@@ -1078,32 +1078,32 @@
    "name": "HL_Piano_Chords_F#min_78bpm.wav",
    "cat": "piano",
    "bpm": 65.0,
-   "pc": null,
-   "mode": null,
+   "pc": 6,
+   "mode": "minor",
    "dur": 59.077
   },
   {
    "name": "horizon -  80 bpm em - Songstarter.wav",
    "cat": "vocal",
    "bpm": 140.0,
-   "pc": null,
-   "mode": null,
+   "pc": 4,
+   "mode": "minor",
    "dur": 13.714
   },
   {
    "name": "HRBA_latin_drill_trap_melody_loop_145_C#m_lost in you guitar.wav",
    "cat": "guitar",
    "bpm": 150.0,
-   "pc": null,
-   "mode": null,
+   "pc": 1,
+   "mode": "minor",
    "dur": 6.4
   },
   {
    "name": "HRCA_boomin_trap_808_loop_130_C#m_numb.wav",
    "cat": "b808",
    "bpm": 138.0,
-   "pc": null,
-   "mode": null,
+   "pc": 1,
+   "mode": "minor",
    "dur": 27.826
   },
   {
@@ -1206,16 +1206,16 @@
    "name": "JL_Y2KE_01_Electric_Guitar_riff_G#m_92bpm.wav",
    "cat": "guitar",
    "bpm": 120.0,
-   "pc": null,
-   "mode": null,
+   "pc": 8,
+   "mode": "minor",
    "dur": 32.0
   },
   {
    "name": "JL_Y2KE_01_Electric_keys_melody_stack_G#m_92bpm.wav",
    "cat": "piano",
    "bpm": 88.0,
-   "pc": null,
-   "mode": null,
+   "pc": 8,
+   "mode": "minor",
    "dur": 21.818
   },
   {
@@ -1230,16 +1230,16 @@
    "name": "JL_Y2KE_07_Synth_pad_melody_Gm_114bpm.wav",
    "cat": "pad",
    "bpm": 106.7,
-   "pc": null,
-   "mode": null,
+   "pc": 7,
+   "mode": "minor",
    "dur": 36.0
   },
   {
    "name": "JL_Y2KE_10_Synth_songstarter_melody_multi_Gm_104bpm.wav",
    "cat": "vocal",
    "bpm": 90.0,
-   "pc": null,
-   "mode": null,
+   "pc": 7,
+   "mode": "minor",
    "dur": 21.333
   },
   {
@@ -1254,16 +1254,16 @@
    "name": "JLE_Dark Mode_bullet_Bm_146_Piano_Melody.wav",
    "cat": "vocal",
    "bpm": 140.0,
-   "pc": null,
-   "mode": null,
+   "pc": 11,
+   "mode": "minor",
    "dur": 27.429
   },
   {
    "name": "JLE_TCATL_01_Bass_808_Bm_144bpm.wav",
    "cat": "b808",
    "bpm": 128.0,
-   "pc": null,
-   "mode": null,
+   "pc": 11,
+   "mode": "minor",
    "dur": 30.0
   },
   {
@@ -1278,24 +1278,24 @@
    "name": "JLE_TCATL_02_Synth_melody_stack_F#m_156bpm.wav",
    "cat": "synth",
    "bpm": 120.0,
-   "pc": null,
-   "mode": null,
+   "pc": 6,
+   "mode": "minor",
    "dur": 16.0
   },
   {
    "name": "JSN_Lemon_Arp_Loop_A#m_105BPM.wav",
    "cat": "arp",
    "bpm": 127.0,
-   "pc": null,
-   "mode": null,
+   "pc": 10,
+   "mode": "minor",
    "dur": 15.118
   },
   {
    "name": "K_HT_808_D#m_140bpm.wav",
    "cat": "b808",
    "bpm": 90.0,
-   "pc": null,
-   "mode": null,
+   "pc": 3,
+   "mode": "minor",
    "dur": 21.333
   },
   {
@@ -1310,8 +1310,8 @@
    "name": "Kit_4_Bass_Loop_808_1_Amin_140BPM.wav",
    "cat": "b808",
    "bpm": 155.0,
-   "pc": null,
-   "mode": null,
+   "pc": 9,
+   "mode": "minor",
    "dur": 12.387
   },
   {
@@ -1334,7 +1334,7 @@
    "name": "KKATL_808_BigFoot_C.wav",
    "cat": "b808",
    "bpm": 109.5,
-   "pc": null,
+   "pc": 0,
    "mode": null,
    "dur": 2.191
   },
@@ -1343,14 +1343,14 @@
    "cat": "piano",
    "bpm": 130.0,
    "pc": 0,
-   "mode": "minor",
+   "mode": "major",
    "dur": 7.385
   },
   {
    "name": "L_GB_One_Shot_808_Daddy_C.wav",
    "cat": "b808",
    "bpm": 142.0,
-   "pc": null,
+   "pc": 0,
    "mode": null,
    "dur": 13.521
   },
@@ -1358,7 +1358,7 @@
    "name": "L_GB_One_Shot_808_Grande_G.wav",
    "cat": "b808",
    "bpm": 102.0,
-   "pc": null,
+   "pc": 7,
    "mode": null,
    "dur": 9.412
   },
@@ -1375,7 +1375,7 @@
    "cat": "brass",
    "bpm": 150.0,
    "pc": 3,
-   "mode": "minor",
+   "mode": "major",
    "dur": 12.8
   },
   {
@@ -1390,16 +1390,16 @@
    "name": "Lead_Melody_Dark_(Weary)_Dminor_125bpm.wav",
    "cat": "synth",
    "bpm": 90.0,
-   "pc": null,
-   "mode": null,
+   "pc": 2,
+   "mode": "minor",
    "dur": 21.333
   },
   {
    "name": "LFPR_110_Amaj_Tienes_Classic_Guitar_2.wav",
    "cat": "guitar",
    "bpm": 98.0,
-   "pc": null,
-   "mode": null,
+   "pc": 9,
+   "mode": "major",
    "dur": 19.592
   },
   {
@@ -1446,8 +1446,8 @@
    "name": "LSLMP_Something_Guitar_Loop_02_90_BMaj.wav",
    "cat": "guitar",
    "bpm": 80.0,
-   "pc": null,
-   "mode": null,
+   "pc": 11,
+   "mode": "major",
    "dur": 12.0
   },
   {
@@ -1510,7 +1510,7 @@
    "name": "ML2-3-Guitar2_100bpm_C.wav",
    "cat": "guitar",
    "bpm": 153.3,
-   "pc": null,
+   "pc": 0,
    "mode": null,
    "dur": 12.524
   },
@@ -1518,7 +1518,7 @@
    "name": "ML2-4-Guitar2_121bpm_Eb.wav",
    "cat": "guitar",
    "bpm": 118.0,
-   "pc": null,
+   "pc": 3,
    "mode": null,
    "dur": 16.271
   },
@@ -1526,7 +1526,7 @@
    "name": "ML3-5-Guitar_80bpm_D.wav",
    "cat": "guitar",
    "bpm": 158.7,
-   "pc": null,
+   "pc": 2,
    "mode": null,
    "dur": 24.194
   },
@@ -1550,8 +1550,8 @@
    "name": "NewSupplyTrap1_Roll _140BPM_Abmin_Piano.wav",
    "cat": "piano",
    "bpm": 140.0,
-   "pc": null,
-   "mode": null,
+   "pc": 8,
+   "mode": "minor",
    "dur": 27.429
   },
   {
@@ -1574,8 +1574,8 @@
    "name": "OXYGEN_FLH_Kit02_Synth_Loop_Pad_Cm_85.wav",
    "cat": "pad",
    "bpm": 100.0,
-   "pc": null,
-   "mode": null,
+   "pc": 0,
+   "mode": "minor",
    "dur": 19.2
   },
   {
@@ -1590,24 +1590,24 @@
    "name": "Piano_01_Am_100bpm.wav",
    "cat": "piano",
    "bpm": 100.0,
-   "pc": null,
-   "mode": null,
+   "pc": 9,
+   "mode": "minor",
    "dur": 19.2
   },
   {
    "name": "Piano_Arpeggio_Sauce_Pitched_Down_Dark_(Backdoor)_Cminor_130bpm.wav",
    "cat": "piano",
    "bpm": 140.0,
-   "pc": null,
-   "mode": null,
+   "pc": 0,
+   "mode": "minor",
    "dur": 13.714
   },
   {
    "name": "Piano_Melody_Dark_(Drippin)_Bminor_128bpm.wav",
    "cat": "piano",
    "bpm": 144.0,
-   "pc": null,
-   "mode": null,
+   "pc": 11,
+   "mode": "minor",
    "dur": 26.667
   },
   {
@@ -1622,16 +1622,16 @@
    "name": "PMPR_138_F#m_Synth_Loop_Epic.wav",
    "cat": "synth",
    "bpm": 115.0,
-   "pc": null,
-   "mode": null,
+   "pc": 6,
+   "mode": "minor",
    "dur": 16.696
   },
   {
    "name": "Polar_Opposites_Vocal_Adlibs_A#m_84BPM.wav",
    "cat": "vocal",
    "bpm": 116.0,
-   "pc": null,
-   "mode": null,
+   "pc": 10,
+   "mode": "minor",
    "dur": 16.552
   },
   {
@@ -1646,8 +1646,8 @@
    "name": "PW1_123_Dm_Dominant_Chords_Guitar.wav",
    "cat": "guitar",
    "bpm": 96.0,
-   "pc": null,
-   "mode": null,
+   "pc": 2,
+   "mode": "minor",
    "dur": 10.0
   },
   {
@@ -1662,16 +1662,16 @@
    "name": "RnB Noir_Wavetick_120_Synth_Loop_Em_Pad_Distance.wav",
    "cat": "pad",
    "bpm": 86.0,
-   "pc": null,
-   "mode": null,
+   "pc": 4,
+   "mode": "minor",
    "dur": 22.326
   },
   {
    "name": "RPSTR_FA_Coke_Choir_Bm_120BPM.wav",
    "cat": "vocal",
    "bpm": 75.3,
-   "pc": null,
-   "mode": null,
+   "pc": 11,
+   "mode": "minor",
    "dur": 51.0
   },
   {
@@ -1710,7 +1710,7 @@
    "name": "SCY007_ 03_808_C.wav",
    "cat": "b808",
    "bpm": 173.3,
-   "pc": null,
+   "pc": 0,
    "mode": null,
    "dur": 1.385
   },
@@ -1830,8 +1830,8 @@
    "name": "Spanish-y Trap Guitar_Em_90bpm - Melody.wav",
    "cat": "guitar",
    "bpm": 123.0,
-   "pc": null,
-   "mode": null,
+   "pc": 4,
+   "mode": "minor",
    "dur": 7.805
   },
   {
@@ -1854,16 +1854,16 @@
    "name": "Steady_Vocals_Em_98Bpm.wav",
    "cat": "vocal",
    "bpm": 140.0,
-   "pc": null,
-   "mode": null,
+   "pc": 4,
+   "mode": "minor",
    "dur": 6.857
   },
   {
    "name": "Suspension_Texture_Chopped_Pad_Am_144BPM.wav",
    "cat": "pad",
    "bpm": 90.0,
-   "pc": null,
-   "mode": null,
+   "pc": 9,
+   "mode": "minor",
    "dur": 21.333
   },
   {
@@ -1886,8 +1886,8 @@
    "name": "TLH_FA_Clay_Vocal_C#m_108BPM.wav",
    "cat": "vocal",
    "bpm": 120.0,
-   "pc": null,
-   "mode": null,
+   "pc": 1,
+   "mode": "minor",
    "dur": 16.0
   },
   {
@@ -1942,8 +1942,8 @@
    "name": "TSL_TR1_Wet_Melody_Saxophone_88bpm_Cm_Loop.wav",
    "cat": "brass",
    "bpm": 114.0,
-   "pc": null,
-   "mode": null,
+   "pc": 0,
+   "mode": "minor",
    "dur": 8.421
   },
   {
@@ -1958,7 +1958,7 @@
    "name": "UR_DREAMWAY_808_One_Shot_07_C.wav",
    "cat": "b808",
    "bpm": 120.0,
-   "pc": null,
+   "pc": 0,
    "mode": null,
    "dur": 4.0
   },
@@ -1974,8 +1974,8 @@
    "name": "VB_Synth_Poly_Loop_Roadtrip_Cmin_113bpm.wav",
    "cat": "synth",
    "bpm": 140.0,
-   "pc": null,
-   "mode": null,
+   "pc": 0,
+   "mode": "minor",
    "dur": 13.714
   },
   {
@@ -1998,8 +1998,8 @@
    "name": "WY_Acoustic_Guitar_Strums_G#min_95bpm.wav",
    "cat": "guitar",
    "bpm": 56.0,
-   "pc": null,
-   "mode": null,
+   "pc": 8,
+   "mode": "minor",
    "dur": 68.571
   }
  ]
