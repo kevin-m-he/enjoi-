@@ -261,8 +261,8 @@ def main() -> int:
     check(abs(c440) > abs(raw_c440) + 3.0,
           f"...and AWAY from 440 ({abs(raw_c440):.1f}c -> {abs(c440):.1f}c)")
 
-    # --- GOAL 1: gain-staging — vocal sits ON TOP of a LOUD instrumental ----
-    print("\n[5/5] Gain-staging: vocal on top + master LUFS")
+    # --- GOAL 1: gain-staging — BEAT-FORWARD (vocal blended UNDER the instrumental) --
+    print("\n[5/5] Gain-staging: beat-forward (vocal under the beat) + master LUFS")
     inst_stem, _ = core_audio.load_audio(project.exports_dir / "_stem_instrumental.wav", mono=False)
     voc_stem, _ = core_audio.load_audio(project.exports_dir / "_stem_vocals.wav", mono=False)
 
@@ -289,9 +289,9 @@ def main() -> int:
     delta = voc_db - inst_db
     print(f"    instrumental-stem active RMS: {inst_db:.2f} dBFS")
     print(f"    vocal-stem        active RMS: {voc_db:.2f} dBFS")
-    print(f"    vocal - instrumental: {delta:+.2f} dB (lead-forward window: not < -6, ideally +2..+4)")
-    check(delta > -6.0, f"vocal NOT drowned (>= -6 dB vs instrumental); got {delta:+.2f} dB")
-    check(delta >= 0.0, f"vocal sits AT/ABOVE the instrumental; got {delta:+.2f} dB")
+    print(f"    vocal - instrumental: {delta:+.2f} dB (beat-forward window: under the beat but audible, ~ -1..-5)")
+    check(delta < 0.5, f"vocal sits UNDER the instrumental (beat-forward); got {delta:+.2f} dB")
+    check(delta > -9.0, f"vocal still audible in its pocket (not buried); got {delta:+.2f} dB")
 
     meta = storage.read_json(project.exports_dir / "_master_meta.json")
     y, _ = core_audio.load_audio(project.exports_dir / "_master_tmp.wav")

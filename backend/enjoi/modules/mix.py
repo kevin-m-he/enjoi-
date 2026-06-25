@@ -45,19 +45,20 @@ DOUBLER_OFFSET_SEC = 0.012
 DOUBLER_CENTS = 6.0
 DOUBLER_GAIN_DB = -6.0
 DUCK_MAX_DB = 1.5
+POCKET_MAX_DB = 3.0           # dynamic presence-band carve in the instrument under vocals
 TP_CEILING_DB = -1.0
 
-# Gain-staging: the lead vocal must sit clearly ON TOP of the instrumental
-# (the #1 product complaint is drowned vocals). We measure both buses and set
-# the vocal level RELATIVE to the instrumental so the lead sits in a modern,
-# lead-vocal-forward window above it.
-# Vocal sits just UNDER the lead melody: present and clear, but the melody leads.
-# Measured over the whole instrumental (melody is its loudest stem), so a small
-# positive offset keeps the vocal ~even-with / just-below the melody. Generous
-# range preserves artistic expression.
-VOCAL_OVER_INSTR_LU = 1.5      # target: lead vocal ~this many LU over the instrumental avg
-VOCAL_OVER_INSTR_MIN = 0.5     # never drowned
-VOCAL_OVER_INSTR_MAX = 3.0     # nor shouty
+# Gain-staging: BEAT-FORWARD balance. The instrumental leads; the lead vocal sits
+# blended UNDERNEATH it in level (the owner's standing preference — the beat should
+# be louder than the vocal). The vocal is kept intelligible NOT by raising its level
+# but by frequency space: the instrumental carries a static ~2.8 kHz vocal pocket
+# (band._glue_and_pocket) plus a DYNAMIC presence-band carve keyed to vocal activity
+# (_pocket_duck below). So the vocal reads clearly while still sitting under the beat.
+# We measure both buses' active loudness and seat the vocal a few LU below the
+# instrumental. Negative offset = vocal under the beat.
+VOCAL_OVER_INSTR_LU = -3.0     # target: lead vocal ~this many LU UNDER the instrumental
+VOCAL_OVER_INSTR_MIN = -5.0    # blended deep
+VOCAL_OVER_INSTR_MAX = -1.5    # but never fully buried/inaudible
 VOCAL_STAGE_GAIN_LIMIT_DB = 18.0  # clamp the relative move so one bus can't run away
 
 # Preset flavors: small sensible variations per genre (spec 4.9).
@@ -453,6 +454,21 @@ def _stereo_widen(x: np.ndarray, sr: int, amount: float = 1.22) -> np.ndarray:
     return np.nan_to_num(out, nan=0.0, posinf=0.0, neginf=0.0)
 
 
+def _pocket_duck(inst: np.ndarray, sr: int, activity_samp: np.ndarray,
+                 band=(2200.0, 4800.0), max_db: float = POCKET_MAX_DB) -> np.ndarray:
+    """Dynamically carve the vocal presence band out of the instrumental in
+    proportion to vocal activity. In a beat-forward mix the vocal sits UNDER the
+    instrumental in level; this frequency-specific duck keeps it intelligible by
+    opening space in its own band only while it's sounding (sidechain + pocket).
+    activity_samp is a per-sample value in [0, 1]."""
+    if not np.any(activity_samp > 1e-3):
+        return inst
+    bandsig = _butter_filter(inst, list(band), sr, "band", order=2)
+    g = (10.0 ** (-max_db * np.clip(activity_samp, 0.0, 1.0) / 20.0)).astype(np.float32)
+    out = (inst - bandsig + bandsig * g[None, :]).astype(np.float32)
+    return np.nan_to_num(out, nan=0.0, posinf=0.0, neginf=0.0)
+
+
 # ---------------------------------------------------------------------------
 # placement loading
 # ---------------------------------------------------------------------------
@@ -608,26 +624,37 @@ def mix_and_master(project, arrangement: dict, grid: dict, preset: str,
         activity = np.clip((env + 40.0) / 15.0, 0.0, 1.0)  # 0 below -40 dBFS
         duck = _frames_gain_to_samples(-DUCK_MAX_DB * activity, ENV_HOP, n)
         inst = (inst * duck[None, :]).astype(np.float32)
+        # dynamic presence pocket: in a beat-forward mix the vocal sits UNDER the
+        # instrumental, so carve its band out of the instrument while it sounds to
+        # keep it clear without raising its level.
+        centers = np.arange(len(activity), dtype=np.float64) * ENV_HOP + ENV_HOP / 2.0
+        activity_samp = np.interp(
+            np.arange(n, dtype=np.float64), centers, activity
+        ).astype(np.float32)
+        inst = _pocket_duck(inst, sr, activity_samp)
     inst = np.nan_to_num(inst, nan=0.0, posinf=0.0, neginf=0.0)
 
-    # ---- gain-staging: put the lead vocal ON TOP of the instrumental --------
-    # Measure both buses' ACTIVE loudness and lift/trim the vocal bus so the
-    # lead sits +2..+4 LU above the instrumental (lead-vocal-forward balance).
-    # This is what stops the one-take from being drowned by the backing track.
+    # ---- gain-staging: seat the lead vocal UNDER the instrumental (beat-forward) --
+    # Measure both buses' ACTIVE loudness and trim the vocal bus so the lead sits a
+    # few LU BELOW the instrumental (the owner's standing beat-forward preference).
+    # The vocal stays clear via the static + dynamic frequency pocket, not level.
     if has_vocals:
-        progress(0.60, "Gain-staging: seating the vocal above the instrumental")
+        progress(0.60, "Gain-staging: blending the vocal under the beat")
         inst_loud = _active_loudness(inst, sr)
         voc_loud = _active_loudness(vocal, sr)
         if math.isfinite(inst_loud) and math.isfinite(voc_loud):
-            desired_voc = inst_loud + VOCAL_OVER_INSTR_LU
+            target_offset = float(np.clip(
+                VOCAL_OVER_INSTR_LU, VOCAL_OVER_INSTR_MIN, VOCAL_OVER_INSTR_MAX
+            ))
+            desired_voc = inst_loud + target_offset
             stage_db = desired_voc - voc_loud
             stage_db = float(np.clip(
                 stage_db, -VOCAL_STAGE_GAIN_LIMIT_DB, VOCAL_STAGE_GAIN_LIMIT_DB
             ))
             vocal = (vocal * core_audio.db_to_lin(stage_db)).astype(np.float32)
             log.debug(
-                "gain-stage: inst=%.1f LU voc=%.1f LU -> +%.1f dB (target +%.1f LU)",
-                inst_loud, voc_loud, stage_db, VOCAL_OVER_INSTR_LU,
+                "gain-stage: inst=%.1f LU voc=%.1f LU -> %+.1f dB (target %+.1f LU, beat-forward)",
+                inst_loud, voc_loud, stage_db, target_offset,
             )
         vocal = np.nan_to_num(vocal, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
 
